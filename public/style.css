@@ -21,12 +21,6 @@ body {
 body {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 18% 14%, rgb(91 129 255 / 70%), transparent 34%),
-    radial-gradient(circle at 86% 30%, rgb(30 72 178 / 65%), transparent 38%),
-    radial-gradient(circle at 18% 76%, rgb(226 121 206 / 48%), transparent 31%),
-    radial-gradient(circle at 78% 92%, rgb(72 55 199 / 68%), transparent 38%),
-    linear-gradient(155deg, #3153ad 0%, #172e73 45%, #283f91 100%);
 }
 
 body::before {
@@ -47,8 +41,8 @@ button {
 .remote {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: clamp(14px, 2.4vh, 22px);
+  grid-template-rows: 2px minmax(0, 0.9fr) auto;
+  gap: 28px;
   width: min(100%, 460px);
   height: 100%;
   height: 100dvh;
@@ -65,7 +59,6 @@ button {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 5px;
   text-shadow: 0 1px 8px rgb(7 17 55 / 38%);
 }
 
@@ -195,17 +188,17 @@ button {
 .controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  place-items: center;
 }
 
 .controls button {
   display: grid;
-  min-height: clamp(78px, 12vh, 96px);
+  height: clamp(78px, 12vh, 96px);
+  width: clamp(78px, 12vh, 96px);
   place-content: center;
   justify-items: center;
-  gap: 7px;
   border: 1px solid rgb(255 255 255 / 32%);
-  border-radius: 24px;
+  border-radius: 9999px;
   background: linear-gradient(145deg, rgb(255 255 255 / 22%), rgb(255 255 255 / 8%));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 27%),

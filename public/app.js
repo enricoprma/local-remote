@@ -221,7 +221,7 @@ function finishPointerGesture(activeGesture, event) {
   if (activeGesture.longPressRecognized) {
     discardPendingMovement(activeGesture);
     openTextInput();
-    showFeedback("Tastatur", false);
+    showFeedback("Keyboard", false);
     return;
   }
 
@@ -236,7 +236,7 @@ function finishPointerGesture(activeGesture, event) {
   ) {
     discardPendingMovement(activeGesture);
     openTextInput();
-    showFeedback("Tastatur", false);
+    showFeedback("Keyboard", false);
     return;
   }
 
@@ -263,7 +263,7 @@ function recognizeLongPress(activeGesture) {
   activeGesture.longPressRecognized = true;
   discardPendingMovement(activeGesture);
   openTextInput();
-  showFeedback("Tastatur", false);
+  showFeedback("Keyboard", false);
 }
 
 function openTextInput() {
@@ -499,7 +499,7 @@ async function sendRequest(path, body, requestName) {
     return true;
   } catch (error) {
     console.error(`${requestName} request failed:`, error);
-    showFeedback("Verbindung fehlgeschlagen", true);
+    showFeedback("Connection failed", true);
     return false;
   }
 }

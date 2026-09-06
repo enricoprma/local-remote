@@ -21,24 +21,25 @@
   </head>
   <body>
     <main class="remote" aria-label="Local Remote">
+
       <header class="remote-header">
       </header>
 
-      <section class="touch-area" aria-label="Touch-Fläche">
+      <section class="touch-area" aria-label="Touch Area">
         <span class="touch-chevron touch-chevron--up" aria-hidden="true"></span>
         <span class="touch-chevron touch-chevron--right" aria-hidden="true"></span>
         <span class="touch-chevron touch-chevron--down" aria-hidden="true"></span>
         <span class="touch-chevron touch-chevron--left" aria-hidden="true"></span>
       </section>
 
-      <nav class="controls" aria-label="Fernbedienung">
-        <button type="button" data-action="volume-down" aria-label="Leiser">
+      <nav class="controls" aria-label="remote controls">
+        <button type="button" data-action="volume-down" aria-label="quieter">
           <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
             <path d="M16 9.5a4 4 0 0 1 0 5"></path>
           </svg>
         </button>
-        <button type="button" data-action="volume-up" aria-label="Lauter">
+        <button type="button" data-action="volume-up" aria-label="louder">
           <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
             <path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10"></path>
@@ -46,14 +47,14 @@
         </button>
       </nav>
 
-      <form class="text-entry" aria-label="Texteingabe">
+      <form class="text-entry" aria-label="Textinput">
         <input
           type="text"
           maxlength="500"
           autocomplete="off"
           enterkeyhint="send"
-          placeholder="Text eingeben"
-          aria-label="Text für den PC"
+          placeholder="Enter text"
+          aria-label="Text for PC"
         >
       </form>
 
