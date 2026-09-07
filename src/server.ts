@@ -1,12 +1,26 @@
 import express, { type ErrorRequestHandler } from "express";
-import { networkInterfaces } from "node:os";
 import path from "node:path";
 
 import { isRemoteAction } from "./actions";
 import { executeAction, movePointer, scroll, typeText } from "./input";
 
+import { Bonjour } from "bonjour-service";
+
+import {
+  getLocalUrls,
+  mdnsHostname,
+  mdnsUrl,
+  port,
+} from "./network";
+
+const bonjour = new Bonjour(
+  undefined,
+  (error: any) => {
+    console.error("mDNS error:", error);
+  },
+);
+
 const app = express();
-const port = Number(process.env.PORT ?? 3000);
 const maxTextLength = 500;
 const maxPointerDelta = 500;
 const maxScrollDelta = 20;
@@ -88,16 +102,19 @@ const handleError: ErrorRequestHandler = (error, _request, response, _next) => {
 app.use(handleError);
 
 app.listen(port, "0.0.0.0", () => {
-  const addresses = Object.values(networkInterfaces())
-    .flatMap((entries) => entries ?? [])
-    .filter((entry) => entry.family === "IPv4" && !entry.internal)
-    .map((entry) => entry.address);
+  bonjour.publish({
+    name: "Local Remote",
+    type: "http",
+    host: mdnsHostname,
+    port,
+  });
 
   console.log("Local Remote running:\n");
-  console.log(`http://localhost:${port}`);
 
-  for (const address of addresses) {
-    console.log(`http://${address}:${port}`);
+  console.log(mdnsUrl);
+
+  for (const url of getLocalUrls()) {
+    console.log(url);
   }
 });
 

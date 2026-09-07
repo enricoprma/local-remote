@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "main": "dist/electron.js",
-
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server.ts",
@@ -12,21 +11,21 @@
     "dist": "npm run build && electron-builder",
     "typecheck": "tsc --noEmit"
   },
-
   "dependencies": {
     "@hurdlegroup/robotjs": "^0.12.3",
-    "express": "^5.2.1"
+    "bonjour-service": "^1.4.4",
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4"
   },
-
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.4.1",
+    "@types/qrcode": "^1.5.6",
     "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   },
-
   "build": {
     "appId": "de.localremote.app",
     "productName": "Local Remote",
