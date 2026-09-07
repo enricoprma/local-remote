@@ -128,6 +128,7 @@ export function setupGestures(
       mode === "longpress" &&
       primary?.id === event.pointerId
     ) {
+      onLongPress();
       primary = null;
       mode = "idle";
     } else if (mode === "scroll") {
@@ -182,7 +183,6 @@ export function setupGestures(
       lastX: event.clientX,
       lastY: event.clientY,
 
-      startedAt: performance.now(),
       moved: false,
     };
 
@@ -196,7 +196,6 @@ export function setupGestures(
       }
 
       mode = "longpress";
-      onLongPress();
     }, LONG_PRESS_MS);
   }
 
@@ -236,16 +235,8 @@ export function setupGestures(
     movePointer(event);
     clearLongPress();
 
-    const heldFor =
-      performance.now() - primary.startedAt;
-
     if (!primary.moved) {
-      if (heldFor >= LONG_PRESS_MS) {
-        // Fallback in case pointerup wins the race against the timer.
-        onLongPress();
-      } else {
-        onTap();
-      }
+      onTap();
     }
 
     primary = null;
