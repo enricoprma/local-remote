@@ -1,26 +1,5 @@
-export type RemoteAction =
-  | "click"
-  | "enter"
-  | "back"
-  | "volume-up"
-  | "volume-down";
-
-type InputKey =
-  | "enter"
-  | "escape"
-  | "audio_vol_up"
-  | "audio_vol_down";
-
-type KeyboardAction = Exclude<RemoteAction, "click">;
-
-const inputKeys: Record<KeyboardAction, InputKey> = {
-  enter: "enter",
-  back: "escape",
-  "volume-up": "audio_vol_up",
-  "volume-down": "audio_vol_down",
-};
-
-const remoteActions: Record<RemoteAction, true> = {
+// The allowlist is the single source for runtime validation and the action type.
+const remoteActions = {
   click: true,
   enter: true,
   back: true,
@@ -28,10 +7,9 @@ const remoteActions: Record<RemoteAction, true> = {
   "volume-down": true,
 };
 
-export function isRemoteAction(value: unknown): value is RemoteAction {
-  return typeof value === "string" && Object.hasOwn(remoteActions, value);
-}
+export type RemoteAction = keyof typeof remoteActions;
 
-export function getInputKey(action: KeyboardAction): InputKey {
-  return inputKeys[action];
+export function isRemoteAction(value: unknown): value is RemoteAction {
+  // hasOwn also rejects inherited property names such as "toString".
+  return typeof value === "string" && Object.hasOwn(remoteActions, value);
 }
