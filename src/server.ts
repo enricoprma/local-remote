@@ -18,7 +18,7 @@ app.get("/health", (_request, response) => {
   response.json({ status: "ok" });
 });
 
-app.post("/api/action", async (request, response) => {
+app.post("/api/action", (request, response) => {
   const body: unknown = request.body;
 
   if (!isRecord(body) || !isRemoteAction(body.action)) {
@@ -26,11 +26,12 @@ app.post("/api/action", async (request, response) => {
     return;
   }
 
-  await executeAction(body.action);
+  // RobotJS is synchronous; only acknowledge the request after execution returns.
+  executeAction(body.action);
   response.sendStatus(204);
 });
 
-app.post("/api/pointer", async (request, response) => {
+app.post("/api/pointer", (request, response) => {
   const body: unknown = request.body;
 
   if (!isPointerMovement(body)) {
@@ -38,11 +39,11 @@ app.post("/api/pointer", async (request, response) => {
     return;
   }
 
-  await movePointer(body.dx, body.dy);
+  movePointer(body.dx, body.dy);
   response.sendStatus(204);
 });
 
-app.post("/api/scroll", async (request, response) => {
+app.post("/api/scroll", (request, response) => {
   const body: unknown = request.body;
 
   if (!isScrollMovement(body)) {
@@ -50,11 +51,11 @@ app.post("/api/scroll", async (request, response) => {
     return;
   }
 
-  await scroll(body.dy);
+  scroll(body.dy);
   response.sendStatus(204);
 });
 
-app.post("/api/text", async (request, response) => {
+app.post("/api/text", (request, response) => {
   const body: unknown = request.body;
 
   if (
@@ -67,7 +68,7 @@ app.post("/api/text", async (request, response) => {
     return;
   }
 
-  await typeText(body.text);
+  typeText(body.text);
   response.sendStatus(204);
 });
 

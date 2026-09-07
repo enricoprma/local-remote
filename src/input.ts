@@ -1,25 +1,33 @@
 import robot from "@hurdlegroup/robotjs";
 
-import { getInputKey, type RemoteAction } from "./actions";
+import type { RemoteAction } from "./actions";
 
-export async function executeAction(action: RemoteAction): Promise<void> {
+// These native names stay internal; the HTTP API exposes only RemoteAction values.
+const robotKeys = {
+  enter: "enter",
+  back: "escape",
+  "volume-up": "audio_vol_up",
+  "volume-down": "audio_vol_down",
+} satisfies Record<Exclude<RemoteAction, "click">, string>;
+
+export function executeAction(action: RemoteAction): void {
   if (action === "click") {
     robot.mouseClick("left");
     return;
   }
 
-  robot.keyTap(getInputKey(action));
+  robot.keyTap(robotKeys[action]);
 }
 
-export async function movePointer(dx: number, dy: number): Promise<void> {
+export function movePointer(dx: number, dy: number): void {
   const position = robot.getMousePos();
   robot.moveMouse(position.x + dx, position.y + dy);
 }
 
-export async function scroll(dy: number): Promise<void> {
+export function scroll(dy: number): void {
   robot.scrollMouse(0, dy);
 }
 
-export async function typeText(text: string): Promise<void> {
+export function typeText(text: string): void {
   robot.typeString(text);
 }
