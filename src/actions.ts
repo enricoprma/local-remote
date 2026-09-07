@@ -5,6 +5,8 @@ const remoteActions = {
   back: true,
   "volume-up": true,
   "volume-down": true,
+  left: true,
+  right: true,
 };
 
 export type RemoteAction = keyof typeof remoteActions;

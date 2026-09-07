@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,30 +21,38 @@
   </head>
   <body>
     <main class="remote" aria-label="Local Remote">
-
-      <header class="remote-header">
-      </header>
-
       <section class="touch-area" aria-label="Touch Area">
-        <span class="touch-chevron touch-chevron--up" aria-hidden="true"></span>
-        <span class="touch-chevron touch-chevron--right" aria-hidden="true"></span>
-        <span class="touch-chevron touch-chevron--down" aria-hidden="true"></span>
-        <span class="touch-chevron touch-chevron--left" aria-hidden="true"></span>
       </section>
-
       <nav class="controls" aria-label="remote controls">
-        <button type="button" data-action="volume-down" aria-label="quieter">
-          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
-            <path d="M16 9.5a4 4 0 0 1 0 5"></path>
-          </svg>
-        </button>
-        <button type="button" data-action="volume-up" aria-label="louder">
-          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
-            <path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10"></path>
-          </svg>
-        </button>
+        <section class="control-section volume" aria-label="Volume">
+          <button type="button" data-action="volume-down" aria-label="quieter">
+            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
+              <path d="M16 11h6v2h-6z"></path>
+            </svg>
+          </button>
+          <button type="button" data-action="volume-up" aria-label="louder">
+            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
+              <path d="M16 11h6v2h-6zM18 9h2v6h-2z"></path>
+            </svg>
+          </button>
+        </section>
+
+        <section class="control-section direction" aria-label="Arrow keys">
+          <button type="button" data-action="left" aria-label="go left">
+            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M0 0h24v24H0z" fill="none"/>
+              <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+          </button>
+          <button type="button" data-action="right" aria-label="go right">
+            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M0 0h24v24H0z" fill="none"/>
+              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+            </svg>
+          </button>
+        </section>
       </nav>
 
       <form class="text-entry" aria-label="Textinput">

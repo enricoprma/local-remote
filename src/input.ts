@@ -8,6 +8,8 @@ const robotKeys = {
   back: "escape",
   "volume-up": "audio_vol_up",
   "volume-down": "audio_vol_down",
+  "left": "left",
+  "right": "right",
 } satisfies Record<Exclude<RemoteAction, "click">, string>;
 
 export function executeAction(action: RemoteAction): void {
