@@ -1,73 +1,85 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Local Remote</title>
-    <meta name="theme-color" content="#253f91">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="stylesheet" href="/style.css">
-    <link rel="manifest" href="/site.webmanifest">
+  <title>Local Remote</title>
+  <meta name="theme-color" content="#253f91">
 
-    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/site.webmanifest">
 
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Local Remote">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  </head>
-  <body>
-    <main class="remote" aria-label="Local Remote">
-      <section class="touch-area" aria-label="Touch Area">
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="shortcut icon" href="/favicon.ico">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Local Remote">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+
+<body>
+  <main class="remote" aria-label="Local Remote">
+    <section class="touch-area" aria-label="Touch Area">
+    </section>
+    <nav class="controls" aria-label="remote controls">
+      <section class="control-section volume" aria-label="Volume">
+        <button type="button" data-action="volume-down" aria-label="quieter">
+          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
+            <path d="M16 11h6v2h-6z"></path>
+          </svg>
+        </button>
+        <button type="button" data-action="volume-up" aria-label="louder">
+          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
+            <path d="M16 11h6v2h-6zM18 9h2v6h-2z"></path>
+          </svg>
+        </button>
       </section>
-      <nav class="controls" aria-label="remote controls">
-        <section class="control-section volume" aria-label="Volume">
-          <button type="button" data-action="volume-down" aria-label="quieter">
-            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
-              <path d="M16 11h6v2h-6z"></path>
-            </svg>
-          </button>
-          <button type="button" data-action="volume-up" aria-label="louder">
-            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10v4h4l5 4V6l-5 4H4z"></path>
-              <path d="M16 11h6v2h-6zM18 9h2v6h-2z"></path>
-            </svg>
-          </button>
-        </section>
 
-        <section class="control-section direction" aria-label="Arrow keys">
-          <button type="button" data-action="left" aria-label="go left">
-            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M0 0h24v24H0z" fill="none"/>
-              <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-            </svg>
-          </button>
-          <button type="button" data-action="right" aria-label="go right">
-            <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M0 0h24v24H0z" fill="none"/>
-              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-            </svg>
-          </button>
-        </section>
-      </nav>
+      <section class="control-section direction" aria-label="Arrow keys">
+        <button type="button" data-action="left" aria-label="go left">
+          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+          </svg>
+        </button>
+        <button type="button" data-action="right" aria-label="go right">
+          <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+          </svg>
+        </button>
+      </section>
+    </nav>
 
-      <form class="text-entry" aria-label="Textinput">
-        <input
-          type="text"
-          maxlength="500"
-          autocomplete="off"
-          enterkeyhint="send"
-          placeholder="Enter text"
-          aria-label="Text for PC"
-        >
-      </form>
+    <form class="text-entry" aria-label="Textinput">
+      <input type="text" maxlength="500" autocomplete="off" enterkeyhint="send" placeholder="Enter text"
+        aria-label="Text for PC">
+    </form>
 
-      <output class="feedback" aria-live="polite"></output>
-    </main>
-    <script type="module" src="/app.js"></script>
-  </body>
+    <form class="pairing-form" hidden>
+      <h2>Connect</h2>
+
+      <p>
+        Enter the 6-digit code shown on your computer.
+      </p>
+
+      <input class="pairing-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+        pattern="[0-9]{6}" placeholder="000000" aria-label="Pairing code">
+
+      <button type="submit">
+        Connect
+      </button>
+    </form>
+
+    <output class="feedback" aria-live="polite"></output>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+
 </html>

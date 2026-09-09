@@ -1,14 +1,18 @@
 async function post(path, body) {
   const response = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(body),
   });
 
-  // Commands intentionally return 204, so successful responses have no body.
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
-  }
+  // The API intentionally returns 204 for successful commands.
+  requireSuccess(response);
+}
+
+export function pair(credential) {
+  return post("/api/pair", { credential });
 }
 
 export function action(action) {
@@ -25,4 +29,28 @@ export function scroll(dy) {
 
 export function typeText(text) {
   return post("/api/text", { text });
+}
+
+export async function hasSession() {
+  const response = await fetch("/api/session");
+
+  if (response.status === 401) {
+    return false;
+  }
+
+  requireSuccess(response);
+  return true;
+}
+
+function requireSuccess(response) {
+  if (response.ok) {
+    return;
+  }
+
+  throw Object.assign(
+    new Error(
+      `Request failed with status ${response.status}`,
+    ),
+    { status: response.status },
+  );
 }

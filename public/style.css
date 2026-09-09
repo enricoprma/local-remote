@@ -184,6 +184,7 @@ button {
 
 .feedback {
   position: absolute;
+  z-index: 200;
   top: calc(max(18px, env(safe-area-inset-top)) + 72px);
   left: 50%;
   min-height: 1.5em;
@@ -206,6 +207,86 @@ button {
 
 .feedback--error {
   color: #ffd0ca;
+}
+
+.pairing-form {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pairing-form[hidden] {
+  display: none;
+}
+
+.pairing-form h2 {
+  margin: 0 0 8px;
+
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.pairing-form p {
+  margin: 0 0 20px;
+
+  font-size: 14px;
+  opacity: 0.7;
+  text-align: center;
+}
+
+.pairing-code {
+  width: 180px;
+
+  padding: 14px 16px;
+
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+
+  font: inherit;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-align: center;
+
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+
+  outline: none;
+}
+
+.pairing-code:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.pairing-form button {
+  width: 180px;
+
+  margin-top: 12px;
+  padding: 12px 16px;
+
+  border: 0;
+  border-radius: 10px;
+
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.pairing-form button:active {
+  transform: scale(0.98);
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
