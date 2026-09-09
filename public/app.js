@@ -29,15 +29,22 @@ await initializePairing();
 
 for (const button of buttons) {
   button.addEventListener("click", () => {
+    showButtonPress(button);
+
     const action = button.dataset.action;
 
     if (action) {
-      void sendAction(
-        action,
-        button.textContent.trim(),
-      );
+      void sendAction(action);
     }
   });
+}
+
+function showButtonPress(button) {
+  button.classList.add("button--pressed");
+
+  window.setTimeout(() => {
+    button.classList.remove("button--pressed");
+  }, 160);
 }
 
 textEntry.addEventListener(
@@ -85,7 +92,7 @@ textInput.addEventListener(
 
 setupGestures(touchArea, {
   onTap: () => {
-    void sendAction("click", "Click");
+    void sendAction("click");
   },
 
   onMove: (dx, dy) => {
@@ -98,7 +105,6 @@ setupGestures(touchArea, {
 
   onLongPress: () => {
     openTextInput();
-    showFeedback("Keyboard", false);
   },
 
   onLongPressCancel: () => {
@@ -205,12 +211,7 @@ function openTextInput() {
   );
 }
 
-async function sendAction(
-  action,
-  label,
-) {
-  showFeedback(label, false);
-
+async function sendAction(action) {
   return runRemote(
     remote.action(action),
     "Action",
@@ -243,10 +244,7 @@ async function submitTextInput() {
     }
 
     const enterSent =
-      await sendAction(
-        "enter",
-        "Enter",
-      );
+      await sendAction("enter");
 
     if (enterSent) {
       textInput.blur();
@@ -258,11 +256,6 @@ async function submitTextInput() {
 }
 
 async function sendText(text) {
-  showFeedback(
-    "Text",
-    false,
-  );
-
   return runRemote(
     remote.typeText(text),
     "Text",
