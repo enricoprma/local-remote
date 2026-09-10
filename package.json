@@ -4,12 +4,15 @@
   "private": true,
   "main": "dist/electron.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx watch src/server.ts",
+    "build": "tsc && npm run build:client",
+    "build:client": "tsc -p tsconfig.client.json",
+    "dev:server": "tsx watch src/server.ts",
+    "dev:client": "tsc -p tsconfig.client.json --watch",
     "start": "node dist/server.js",
     "electron": "npm run build && electron .",
     "dist": "npm run build && electron-builder",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && npm run typecheck:client",
+    "typecheck:client": "tsc -p tsconfig.client.json --noEmit"
   },
   "dependencies": {
     "@hurdlegroup/robotjs": "^0.12.3",

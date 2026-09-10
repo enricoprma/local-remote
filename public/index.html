@@ -22,8 +22,8 @@
 </head>
 
 <body>
-  <main class="remote" aria-label="Local Remote">
-    <section class="touch-area" aria-label="Touch Area">
+  <main class="remote" data-app aria-label="Local Remote">
+    <section id="touch-area" class="touch-area" aria-label="Touch Area">
     </section>
     <nav class="controls" aria-label="remote controls">
       <section class="control-section volume" aria-label="Volume">
@@ -57,29 +57,29 @@
       </section>
     </nav>
 
-    <form class="text-entry" aria-label="Textinput">
-      <input type="text" maxlength="500" autocomplete="off" enterkeyhint="send" placeholder="Enter text"
+    <form id="text-entry" class="text-entry" aria-label="Textinput">
+      <input id="text-input" type="text" maxlength="500" autocomplete="off" enterkeyhint="send" placeholder="Enter text"
         aria-label="Text for PC">
     </form>
 
-    <form class="pairing-form" hidden>
+    <form id="pairing-form" class="pairing-form" hidden>
       <h2>Connect</h2>
 
       <p>
         Enter the 6-digit code shown on your computer.
       </p>
 
-      <input class="pairing-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
-        pattern="[0-9]{6}" placeholder="000000" aria-label="Pairing code">
+      <input id="pairing-code" class="pairing-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+        pattern="[0-9]{6}" placeholder="000000" aria-label="Pairing code" required>
 
       <button type="submit">
         Connect
       </button>
     </form>
 
-    <output class="feedback" aria-live="polite"></output>
+    <output id="feedback" class="feedback" aria-live="polite"></output>
   </main>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 
 </html>

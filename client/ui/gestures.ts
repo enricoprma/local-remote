@@ -7,47 +7,62 @@ const SCROLL_SENSITIVITY = 5;
 const MAX_POINTER_MOVE = 500;
 const MAX_SCROLL = 20;
 
-export function setupGestures(
-  touchArea,
+interface PointerPosition {
+  x: number;
+  y: number;
+}
+
+interface PrimaryPointer {
+  id: number;
+  startX: number;
+  startY: number;
+  lastX: number;
+  lastY: number;
+  moved: boolean;
+}
+
+type GestureMode =
+  | "idle"
+  | "pointer"
+  | "longpress"
+  | "scroll"
+  | "blocked";
+
+export interface GestureHandlers {
+  onTap: () => void;
+  onMove: (dx: number, dy: number) => void;
+  onScroll: (dy: number) => void;
+  onLongPress: () => void;
+  onLongPressCancel: () => void;
+}
+
+export function mountGestures(
+  root: HTMLElement,
   {
     onTap,
     onMove,
     onScroll,
-    onLongPress,
-    onLongPressCancel,
-  },
-) {
-  const pointers = new Map();
+  onLongPress,
+  onLongPressCancel,
+  }: GestureHandlers,
+): void {
+  const touchArea = requiredElement(root, "#touch-area", HTMLElement);
+  const pointers = new Map<number, PointerPosition>();
 
-  let mode = "idle";
-  let primary = null;
+  let mode: GestureMode = "idle";
+  let primary: PrimaryPointer | null = null;
 
-  let longPressTimer = null;
+  let longPressTimer: number | null = null;
 
   let lastScrollY = 0;
   let scrollRemainder = 0;
-
-  /*
-  * Gesture states:
-  *
-  * IDLE --1 finger--> POINTER --hold--> LONG PRESS
-  *                       |
-  *                       +--2 fingers--> SCROLL
-  *
-  * POINTER    --release--> IDLE
-  * LONG PRESS --release--> IDLE
-  *
-  * SCROLL --release--> BLOCKED --all released--> IDLE
-  *
-  * Unsupported pointer combinations -> BLOCKED
-  */
 
   touchArea.addEventListener("pointerdown", pointerDown);
   touchArea.addEventListener("pointermove", pointerMove);
   touchArea.addEventListener("pointerup", pointerUp);
   touchArea.addEventListener("pointercancel", pointerCancel);
 
-  function pointerDown(event) {
+  function pointerDown(event: PointerEvent): void {
     if (event.button !== 0 || pointers.has(event.pointerId)) {
       return;
     }
@@ -61,35 +76,30 @@ export function setupGestures(
 
     touchArea.setPointerCapture(event.pointerId);
 
-    // Ignore new gestures until every finger from the old gesture is gone.
     if (mode === "blocked") {
       return;
     }
 
-    // First finger = mouse movement / tap / long press.
     if (pointers.size === 1) {
       startPointer(event);
       return;
     }
 
-    // Second finger = scroll.
     if (pointers.size === 2 && mode === "pointer") {
       startScroll();
       return;
     }
 
-    // A second finger while the long press is active closes keyboard mode.
     if (pointers.size === 2 && mode === "longpress") {
       onLongPressCancel();
       blockGesture();
       return;
     }
 
-    // Three or more fingers: ignore everything until all are released.
     blockGesture();
   }
 
-  function pointerMove(event) {
+  function pointerMove(event: PointerEvent): void {
     const pointer = pointers.get(event.pointerId);
 
     if (!pointer) {
@@ -110,7 +120,7 @@ export function setupGestures(
     }
   }
 
-  function pointerUp(event) {
+  function pointerUp(event: PointerEvent): void {
     const pointer = pointers.get(event.pointerId);
 
     if (!pointer) {
@@ -133,8 +143,6 @@ export function setupGestures(
       mode = "idle";
     } else if (mode === "scroll") {
       moveScroll();
-
-      // Don't turn the remaining finger into a new mouse gesture.
       mode = "blocked";
     }
 
@@ -145,7 +153,7 @@ export function setupGestures(
     }
   }
 
-  function pointerCancel(event) {
+  function pointerCancel(event: PointerEvent): void {
     if (!pointers.has(event.pointerId)) {
       return;
     }
@@ -167,22 +175,15 @@ export function setupGestures(
     mode = pointers.size === 0 ? "idle" : "blocked";
   }
 
-  // ---------------------------------------------------------------------------
-  // One finger
-  // ---------------------------------------------------------------------------
-
-  function startPointer(event) {
+  function startPointer(event: PointerEvent): void {
     mode = "pointer";
 
     primary = {
       id: event.pointerId,
-
       startX: event.clientX,
       startY: event.clientY,
-
       lastX: event.clientX,
       lastY: event.clientY,
-
       moved: false,
     };
 
@@ -199,7 +200,11 @@ export function setupGestures(
     }, LONG_PRESS_MS);
   }
 
-  function movePointer(event) {
+  function movePointer(event: PointerEvent): void {
+    if (!primary) {
+      return;
+    }
+
     const dx = event.clientX - primary.lastX;
     const dy = event.clientY - primary.lastY;
 
@@ -220,7 +225,6 @@ export function setupGestures(
       Math.trunc(dx * POINTER_SENSITIVITY),
       MAX_POINTER_MOVE,
     );
-
     const moveY = limit(
       Math.trunc(dy * POINTER_SENSITIVITY),
       MAX_POINTER_MOVE,
@@ -231,7 +235,11 @@ export function setupGestures(
     }
   }
 
-  function finishPointer(event) {
+  function finishPointer(event: PointerEvent): void {
+    if (!primary) {
+      return;
+    }
+
     movePointer(event);
     clearLongPress();
 
@@ -243,21 +251,15 @@ export function setupGestures(
     mode = "idle";
   }
 
-  // ---------------------------------------------------------------------------
-  // Two fingers
-  // ---------------------------------------------------------------------------
-
-  function startScroll() {
+  function startScroll(): void {
     clearLongPress();
-
     primary = null;
     mode = "scroll";
-
     scrollRemainder = 0;
-    lastScrollY = centerY();
+    lastScrollY = centerY() ?? 0;
   }
 
-  function moveScroll() {
+  function moveScroll(): void {
     const currentY = centerY();
 
     if (currentY === null) {
@@ -280,21 +282,23 @@ export function setupGestures(
     }
   }
 
-  function centerY() {
+  function centerY(): number | null {
     if (pointers.size !== 2) {
       return null;
     }
 
-    const [first, second] = pointers.values();
+    const positions = [...pointers.values()];
+    const first = positions[0];
+    const second = positions[1];
+
+    if (!first || !second) {
+      return null;
+    }
 
     return (first.y + second.y) / 2;
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  function clearLongPress() {
+  function clearLongPress(): void {
     if (longPressTimer === null) {
       return;
     }
@@ -303,16 +307,16 @@ export function setupGestures(
     longPressTimer = null;
   }
 
-  function blockGesture() {
+  function blockGesture(): void {
     clearLongPress();
-
     primary = null;
     scrollRemainder = 0;
-
     mode = "blocked";
   }
 }
 
-function limit(value, max) {
+function limit(value: number, max: number): number {
   return Math.max(-max, Math.min(max, value));
 }
+
+import { requiredElement } from "./dom.js";
