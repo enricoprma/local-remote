@@ -4,9 +4,9 @@ import { isRemoteAction } from "./actions";
 import { Auth, sessionCookieName, sessionDurationMs } from "./auth";
 
 // Request limits to prevent excessively large or unintended input commands.
-const maxTextLength = 500;
-const maxPointerDelta = 500;
-const maxScrollDelta = 20;
+export const maxTextLength = 500;
+export const maxPointerDelta = 500;
+export const maxScrollDelta = 20;
 
 export function createApi(input: Input, auth: Auth) {
     const router = express.Router();
