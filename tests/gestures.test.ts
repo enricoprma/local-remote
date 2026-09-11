@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { mountGestures, type GestureHandlers } from "../client/ui/gestures-new";
-import { mountGestures as mountUiGestures } from "../client/ui/gestures";
+import { mountGestures as mountUiGestures, type GestureHandlers } from "../client/ui/touchpad";
+import { mountGestures } from "../client/ui/gestureRecognizer";
 
 // Exercise real event listeners and timers without adding a DOM dependency.
 // Device-level capture and virtual-keyboard behavior still need a phone test.
