@@ -71,29 +71,29 @@ test.each([
         expect(input[method]).not.toHaveBeenCalled();
     });
 
-test("rejects an action request without a session", async () => {
+test.each(["click", "right-click", "start-drag", "end-drag"])("rejects %s without a session", async (action) => {
     const { input, app } = setup();
 
     const response = await request(app)
         .post("/api/action")
-        .send({ action: "click" });
+        .send({ action });
 
     expect(response.status).toBe(401);
     expect(input.executeAction).not.toHaveBeenCalled();
 });
 
 // ACTION
-test("executes a valid action exactly once", async () => {
+test.each(["click", "right-click", "start-drag", "end-drag"])("executes %s exactly once", async (action) => {
     const { input, session, app } = setup();
 
     const response = await request(app)
         .post("/api/action")
         .set("Cookie", `${sessionCookieName}=${session}`)
-        .send({ action: "click" });
+        .send({ action });
 
     expect(response.status).toBe(204);
     expect(input.executeAction).toHaveBeenCalledTimes(1);
-    expect(input.executeAction).toHaveBeenCalledWith("click");
+    expect(input.executeAction).toHaveBeenCalledWith(action);
 });
 
 test("rejects an unknown action without executing input", async () => {

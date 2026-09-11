@@ -36,9 +36,13 @@ On iPhone, open the address in Safari and choose **Add to Home Screen**.
 
 * **Move** - drag with one finger
 * **Click** - tap
+* **Right-click** - tap with two fingers
+* **Drag** - place three fingers on the touchpad and move them together; lifting any finger ends the drag. Lift all fingers before starting another gesture.
 * **Scroll** - drag with two fingers
 * **Type** - long press, enter text, then submit to type it and press Enter
 * **Volume and arrow keys** - use the buttons below the touchpad
+
+For recovery after a lost connection, a drag releases automatically after 15 seconds without movement. This also ends a stationary hold; start a new drag to continue.
 
 ### Administrator applications
 

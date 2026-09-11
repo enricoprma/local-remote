@@ -19,7 +19,8 @@ let tray: Tray | null = null;
 let qrWindow: BrowserWindow | null = null;
 
 app.whenReady().then(async () => {
-  await import("./server.js");
+  const { releasePointer } = await import("./server.js");
+  app.on("will-quit", releasePointer);
 
   const iconPath = path.join(
     __dirname,

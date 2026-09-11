@@ -34,6 +34,22 @@ app.get("/health", (_request, response) => {
 
 app.use("/api", createApi(robotJsInput, auth));
 
+export function releasePointer(): void {
+  try {
+    robotJsInput.executeAction("end-drag");
+  } catch (error) {
+    console.error("[server] Pointer release failed:", error);
+  }
+}
+
+process.once("exit", releasePointer);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    releasePointer();
+    process.exit(0);
+  });
+}
+
 app.listen(port, "0.0.0.0", () => {
   bonjour.publish({
     name: "Local Remote",

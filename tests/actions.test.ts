@@ -3,6 +3,9 @@ import { isRemoteAction } from "../src/actions";
 
 test.each([
   "click",
+  "right-click",
+  "start-drag",
+  "end-drag",
   "enter",
   "back",
   "volume-up",

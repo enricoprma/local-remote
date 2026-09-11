@@ -1,6 +1,9 @@
 // The allowlist is the single source for runtime validation and the action type.
 const remoteActions = {
   click: true,
+  "right-click": true,
+  "start-drag": true,
+  "end-drag": true,
   enter: true,
   back: true,
   "volume-up": true,

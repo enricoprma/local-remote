@@ -4,12 +4,13 @@ import { HttpError } from "./services/http.js";
 import { mountControls } from "./ui/controls.js";
 import { requiredElement } from "./ui/dom.js";
 import { mountFeedback } from "./ui/feedback.js";
-import { mountGestures } from "./ui/gestures.js";
+import { mountGestures } from "./ui/touchpad.js";
 import { mountPairingForm } from "./ui/pairing-form.js";
 import { mountTextEntry } from "./ui/text-entry.js";
 
 const root = requiredElement(document, "[data-app]", HTMLElement);
 const feedback = mountFeedback(root);
+let cancelGestures: (() => void) | undefined;
 const pairingForm = mountPairingForm(root, {
   onSubmit: handlePairing,
 });
@@ -25,7 +26,7 @@ mountControls(root, (action) =>
   runRemote(remote.action(action)),
 );
 
-mountGestures(root, {
+cancelGestures = mountGestures(root, {
   onTap: () => {
     void runRemote(remote.action("click"));
   },
@@ -40,6 +41,16 @@ mountGestures(root, {
 
   onLongPress: textEntry.open,
   onLongPressCancel: textEntry.close,
+
+  onRightClick: () => {
+    void runRemote(remote.action("right-click"));
+  },
+  onDragStart: () => {
+    void runRemote(remote.action("start-drag"));
+  },
+  onDragEnd: () => {
+    void runRemote(remote.action("end-drag"));
+  },
 });
 
 async function initializePairing(): Promise<void> {
@@ -92,6 +103,7 @@ async function runRemote(
     await request;
     return true;
   } catch (error: unknown) {
+    cancelGestures?.();
     if (error instanceof HttpError && error.status === 401) {
       pairingForm.show();
       feedback.show("Pairing required", true);
