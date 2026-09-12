@@ -10,7 +10,6 @@ No mobile app required.
   <img src="assets/screenshots/keyboard.jpeg" width="240" alt="Local Remote text input">
 </p>
 
-
 ## Usage
 
 1. Download the [latest release](https://github.com/enricoprma/local-remote/releases/latest).
@@ -34,13 +33,13 @@ On iPhone, open the address in Safari and choose **Add to Home Screen**.
 
 ### Controls
 
-* **Move** - drag with one finger
-* **Click** - tap
-* **Right-click** - tap with two fingers
-* **Drag** - place three fingers on the touchpad and move them together; lifting any finger ends the drag. Lift all fingers before starting another gesture.
-* **Scroll** - drag with two fingers
-* **Type** - long press, enter text, then submit to type it and press Enter
-* **Volume and arrow keys** - use the buttons below the touchpad
+- **Move** - drag with one finger
+- **Click** - tap
+- **Right-click** - tap with two fingers
+- **Drag** - place three fingers on the touchpad and move them together; lifting any finger ends the drag. Lift all fingers before starting another gesture.
+- **Scroll** - drag with two fingers
+- **Type** - long press, enter text, then submit to type it and press Enter
+- **Volume and arrow keys** - use the buttons below the touchpad
 
 For recovery after a lost connection, a drag releases automatically after 15 seconds without movement. This also ends a stationary hold; start a new drag to continue.
 
@@ -54,9 +53,9 @@ If you want to control an application that is running as administrator, start **
 
 Requires:
 
-* Windows 10
-* Node.js 22.12 or newer
-* Python and Visual Studio Build Tools with **Desktop development with C++** if the native RobotJS dependency must be compiled locally
+- Windows 10
+- Node.js 22.12 or newer
+- Python and Visual Studio Build Tools with **Desktop development with C++** if the native RobotJS dependency must be compiled locally
 
 ```powershell
 git clone https://github.com/enricoprma/local-remote.git
