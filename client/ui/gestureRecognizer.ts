@@ -1,879 +1,827 @@
-// ============================================================
-// Gesture map
-// ============================================================
-//
-//                      ┌──────────┐
-//                      │   IDLE   │
-//                      └────┬─────┘
-//                           │ pointerdown
-//                           ▼
-//                    ┌─────────────┐
-//               ┌────│ ONE FINGER │───────┐
-//               │    └──────┬──────┘       │
-//               │           │              │
-//            movement      hold         pointerup
-//               │           │              │
-//               ▼           ▼              ▼
-//            MOVING     LONG PRESS         TAP
-//
-//                    second pointerdown
-//                           │
-//                           ▼
-//                    ┌─────────────┐
-//                    │ TWO FINGERS │
-//                    └──────┬──────┘
-//                       ┌───┴────┐
-//                       │        │
-//                     move    pointerup
-//                       │        │
-//                       ▼        ▼
-//                    SCROLL   RIGHT CLICK
-//
-//
-//     TWO FINGERS → third pointerdown → DRAGGING
-//                                │
-//                         ┌──────┴──────┐
-//                         │             │
-//                       move        pointerup
-//                         │             │
-//                         ▼             ▼
-//                      onMove       onDragEnd
-//
-//
-// Dragging begins with onDragStart().
-//
-// Important:
-// - States describe gestures.
-// - Callbacks describe what the gesture recognizer discovered.
-// - This file knows nothing about RobotJS.
-// - It does not know what mouseToggle(), dragMouse(), etc. are.
-
-// ============================================================
-// Public API
-// ============================================================
-
 export interface GestureHandlers {
   onTap: () => void;
-
   onMove: (dx: number, dy: number) => void;
   onScroll: (dy: number) => void;
-
   onLongPress: () => void;
   onLongPressCancel: () => void;
-
   onRightClick: () => void;
-
   onDragStart: () => void;
   onDragEnd: () => void;
 }
 
-// ============================================================
-// Configuration
-// ============================================================
-
-const HOLD_MS = 450;
-const MOVE_THRESHOLD = 8;
-
-const TWO_FINGER_TAP_MS = 350;
-
-// ============================================================
-// State
-// ============================================================
+const LONG_PRESS_THRESHOLD_MS = 450;
+const MOVE_THRESHOLD_PX = 8;
+const TWO_FINGER_TAP_TIMEOUT_MS = 350;
 
 type Finger = {
   id: number;
-
   x: number;
   y: number;
-
   startX: number;
   startY: number;
 };
 
 type State =
+  | { type: "idle" }
   | {
-      type: "idle";
-    }
-  | {
-      type: "oneFinger";
+      type: "oneFingerPending";
       finger: Finger;
-      startedAt: number;
+      pressedAt: number;
     }
   | {
-      type: "moving";
+      type: "oneFingerMoving";
       finger: Finger;
     }
   | {
-      type: "longPress";
+      type: "longPressReady";
       finger: Finger;
     }
   | {
-      type: "twoFingers";
-
-      first: Finger;
-      second: Finger;
-
-      startedAt: number;
-
-      startCenterY: number;
+      type: "twoFingerPending";
+      firstFinger: Finger;
+      secondFinger: Finger;
+      firstFingerDownAt: number;
+      initialCenterY: number;
+    }
+  | {
+      type: "rightClickPending";
+      remainingFinger: Finger;
+      firstFingerDownAt: number;
+    }
+  | {
+      type: "twoFingerScrolling";
+      firstFinger: Finger;
+      secondFinger: Finger;
       lastCenterY: number;
-
-      moved: boolean;
-      releasedFingerId: number | null;
     }
   | {
-      type: "dragging";
-      fingers: Finger[];
+      type: "threeFingerDragging";
+      fingers: [Finger, Finger, Finger];
     }
   | {
-      // Unsupported / ambiguous gesture.
-      //
-      // We ignore everything until all involved fingers
-      // have left the screen.
-      type: "blocked";
-      fingers: Set<number>;
+      type: "blockedUntilRelease";
+      fingerIds: Set<number>;
     };
 
-// Browser PointerEvents go directly into the machine.
-//
-// "hold" is the only synthetic event we create ourselves,
-// because browsers don't emit a long-press event.
-type GestureEvent = PointerEvent | "hold";
+type GestureEvent = PointerEvent | "longPressThreshold";
 
-// ============================================================
-// Mount
-// ============================================================
-
-export function mountGestures(
+/**
+ * Recognizes touchpad gestures:
+ *
+ * - 1 finger: tap or pointer movement
+ * - 1 finger held for 450ms: long press on normal release
+ * - 2 fingers: right click when tapped, scroll when moved
+ * - 3 fingers: drag
+ *
+ * Two-finger tap timing starts with the first finger.
+ *
+ * When transitioning from one to two fingers, movement origins are reset so
+ * movement before the second contact does not contribute to two-finger scroll.
+ *
+ * After a multi-finger gesture ends or becomes invalid, remaining contacts are
+ * ignored until every finger has been released.
+ *
+ * Returns a function that cancels the currently active gesture while keeping
+ * the recognizer attached.
+ */
+export function attachGestureRecognizer(
   root: HTMLElement,
-  {
-    onTap,
-    onMove,
-    onScroll,
-    onLongPress,
-    onLongPressCancel,
-    onRightClick,
-    onDragStart,
-    onDragEnd,
-  }: GestureHandlers,
+  handlers: GestureHandlers,
 ): () => void {
-  // Prevent the browser from turning our touch gestures
-  // into native scrolling / zooming.
   root.style.touchAction = "none";
 
-  let state: State = {
-    type: "idle",
-  };
+  let state: State = { type: "idle" };
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let longPressTimerGeneration = 0;
 
-  let holdTimer: ReturnType<typeof setTimeout> | null = null;
-  let holdGeneration = 0;
-
-  // ==========================================================
-  // Hold timer
-  // ==========================================================
-
-  function startHoldTimer(): void {
-    cancelHoldTimer();
-    const generation = holdGeneration;
-
-    holdTimer = setTimeout(() => {
-      if (generation !== holdGeneration) return;
-      holdTimer = null;
-      handle("hold");
-    }, HOLD_MS);
-  }
-
-  function cancelHoldTimer(): void {
-    holdGeneration++;
-    if (holdTimer === null) {
-      return;
-    }
-
-    clearTimeout(holdTimer);
-    holdTimer = null;
-  }
-
-  // ==========================================================
-  // State machine
-  // ==========================================================
-
-  function handle(event: GestureEvent): void {
+  function handleGestureEvent(event: GestureEvent): void {
     switch (state.type) {
       case "idle":
         handleIdle(event);
         return;
-
-      case "oneFinger":
-        handleOneFinger(state, event);
+      case "oneFingerPending":
+        handleOneFingerPending(state, event);
         return;
-
-      case "moving":
-        handleMoving(state, event);
+      case "oneFingerMoving":
+        handleOneFingerMoving(state, event);
         return;
-
-      case "longPress":
-        handleLongPress(state, event);
+      case "longPressReady":
+        handleLongPressReady(state, event);
         return;
-
-      case "twoFingers":
-        handleTwoFingers(state, event);
+      case "twoFingerPending":
+        handleTwoFingerPending(state, event);
         return;
-
-      case "dragging":
-        handleDragging(state, event);
+      case "rightClickPending":
+        handleRightClickPending(state, event);
         return;
-
-      case "blocked":
-        handleBlocked(state, event);
+      case "twoFingerScrolling":
+        handleTwoFingerScrolling(state, event);
+        return;
+      case "threeFingerDragging":
+        handleThreeFingerDragging(state, event);
+        return;
+      case "blockedUntilRelease":
+        handleBlockedUntilRelease(state, event);
         return;
     }
   }
 
-  // ==========================================================
-  // IDLE
-  //
-  // Waiting for the first finger.
-  // ==========================================================
-
-  function handleIdle(
-    event: GestureEvent,
-  ): void {
-    if (event === "hold") {
+  function handleIdle(event: GestureEvent): void {
+    if (event === "longPressThreshold" || event.type !== "pointerdown") {
       return;
     }
-
-    if (event.type !== "pointerdown") {
-      return;
-    }
-
-    const finger = fingerFrom(event);
 
     state = {
-      type: "oneFinger",
-      finger,
-      startedAt: event.timeStamp,
+      type: "oneFingerPending",
+      finger: fingerFromEvent(event),
+      pressedAt: event.timeStamp,
     };
 
-    startHoldTimer();
+    startLongPressTimer();
   }
 
-  // ==========================================================
-  // ONE FINGER
-  //
-  // We don't yet know which gesture this will become.
-  //
-  // pointerup    -> tap
-  // movement     -> cursor movement
-  // hold         -> long press
-  // second down  -> two-finger gesture
-  // ==========================================================
-
-  function handleOneFinger(
-    current: Extract<State, { type: "oneFinger" }>,
+  function handleOneFingerPending(
+    current: Extract<State, { type: "oneFingerPending" }>,
     event: GestureEvent,
   ): void {
-    // --------------------------------------------------------
-    // HOLD
-    // --------------------------------------------------------
-
-    if (event === "hold") {
+    if (event === "longPressThreshold") {
       state = {
-        type: "longPress",
+        type: "longPressReady",
         finger: current.finger,
       };
-
-      // Open text entry on pointerup, preserving the browser user gesture
-      // and leaving the input open after the finger is released.
-
       return;
     }
 
-    const isOurFinger =
-      event.pointerId === current.finger.id;
+    if (event.type === "pointerdown") {
+      startTwoFingerPending(current.finger, event, current.pressedAt);
+      return;
+    }
 
-    // --------------------------------------------------------
-    // MOVEMENT
-    // --------------------------------------------------------
+    if (event.pointerId !== current.finger.id) {
+      return;
+    }
 
-    if (
-      event.type === "pointermove" &&
-      isOurFinger
-    ) {
-      const finger = moveFinger(
-        current.finger,
-        event,
-      );
+    if (event.type === "pointermove") {
+      const finger = updateFingerFromEvent(current.finger, event);
 
-      // Small movement is normal finger wobble.
-      //
-      // Until the threshold is crossed, this may still
-      // become a tap or long press.
-      if (
-        distanceFromStart(finger) <
-        MOVE_THRESHOLD
-      ) {
+      if (distanceFromStart(finger) < MOVE_THRESHOLD_PX) {
         state = {
           ...current,
           finger,
         };
-
         return;
       }
 
-      cancelHoldTimer();
+      cancelLongPressTimer();
 
       state = {
-        type: "moving",
+        type: "oneFingerMoving",
         finger,
       };
 
-      // Include the movement accumulated while we were
-      // deciding whether this was a tap or a move.
-      onMove(
-        finger.x - finger.startX,
-        finger.y - finger.startY,
-      );
-
+      handlers.onMove(finger.x - finger.startX, finger.y - finger.startY);
       return;
     }
 
-    // --------------------------------------------------------
-    // SECOND FINGER
-    // --------------------------------------------------------
+    if (event.type === "pointerup") {
+      cancelLongPressTimer();
+      state = { type: "idle" };
 
-    if (event.type === "pointerdown") {
-      startTwoFingers(current.finger, event, current.startedAt);
-      return;
-    }
+      const finger = updateFingerFromEvent(current.finger, event);
 
-    // --------------------------------------------------------
-    // RELEASE -> TAP
-    // --------------------------------------------------------
-
-    if (
-      event.type === "pointerup" &&
-      isOurFinger
-    ) {
-      cancelHoldTimer();
-
-      state = {
-        type: "idle",
-      };
-
-      // A browser may report the final position only on pointerup.
-      const finger = moveFinger(current.finger, event);
-      if (distanceFromStart(finger) >= MOVE_THRESHOLD) {
-        onMove(finger.x - finger.startX, finger.y - finger.startY);
-        return;
-      }
-
-      // The timer may be delayed behind pointerup. Finish the hold here.
-      if (event.timeStamp - current.startedAt >= HOLD_MS) {
-        onLongPress();
-        return;
-      }
-
-      onTap();
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // CANCEL
-    // --------------------------------------------------------
-
-    if (
-      event.type === "pointercancel" &&
-      isOurFinger
-    ) {
-      cancelHoldTimer();
-
-      state = {
-        type: "idle",
-      };
-    }
-  }
-
-  // ==========================================================
-  // MOVING
-  //
-  // One finger is controlling pointer movement.
-  // ==========================================================
-
-  function handleMoving(
-    current: Extract<State, { type: "moving" }>,
-    event: GestureEvent,
-  ): void {
-    if (event === "hold") {
-      return;
-    }
-
-    if (
-      event.type === "pointermove" &&
-      event.pointerId === current.finger.id
-    ) {
-      const next = moveFinger(
-        current.finger,
-        event,
-      );
-
-      state = {
-        type: "moving",
-        finger: next,
-      };
-
-      onMove(
-        next.x - current.finger.x,
-        next.y - current.finger.y,
-      );
-
-      return;
-    }
-
-    if (
-      (
-        event.type === "pointerup" ||
-        event.type === "pointercancel"
-      ) &&
-      event.pointerId === current.finger.id
-    ) {
-      state = {
-        type: "idle",
-      };
-
-      if (event.type === "pointerup") {
-        onMove(event.clientX - current.finger.x, event.clientY - current.finger.y);
-      }
-
-      return;
-    }
-
-    // Allow a third finger to start dragging even if the first finger
-    // moved while the others were being placed. This cannot be a tap.
-    if (event.type === "pointerdown") {
-      startTwoFingers(current.finger, event, event.timeStamp, true);
-    }
-  }
-
-  // ==========================================================
-  // LONG PRESS
-  //
-  // Active until the original finger disappears.
-  // ==========================================================
-
-  function handleLongPress(
-    current: Extract<State, { type: "longPress" }>,
-    event: GestureEvent,
-  ): void {
-    if (event === "hold") {
-      return;
-    }
-
-    if (event.type === "pointermove") {
-      state = { ...current, finger: moveFinger(current.finger, event) };
-      return;
-    }
-
-    if (
-      (
-        event.type === "pointerup" ||
-        event.type === "pointercancel"
-      ) &&
-      event.pointerId === current.finger.id
-    ) {
-      state = {
-        type: "idle",
-      };
-
-      if (event.type === "pointerup") {
-        onLongPress();
+      if (distanceFromStart(finger) >= MOVE_THRESHOLD_PX) {
+        handlers.onMove(finger.x - finger.startX, finger.y - finger.startY);
+      } else if (event.timeStamp - current.pressedAt >= LONG_PRESS_THRESHOLD_MS) {
+        handlers.onLongPress();
       } else {
-        onLongPressCancel();
+        handlers.onTap();
       }
 
-      return;
-    }
-
-    // A second finger cancels the long press.
-    if (event.type === "pointerdown") {
-      startTwoFingers(current.finger, event, event.timeStamp, true);
-      onLongPressCancel();
-    }
-  }
-
-  // ==========================================================
-  // TWO FINGERS
-  //
-  // stationary + quick release -> right click
-  // movement                   -> scroll
-  // third pointerdown          -> drag
-  // ==========================================================
-
-  function startTwoFingers(
-    finger: Finger,
-    event: PointerEvent,
-    startedAt: number,
-    moved = false,
-  ): void {
-    cancelHoldTimer();
-    // Earlier one-finger movement must not shift the scroll origin.
-    const first = resetStart(finger);
-    const second = fingerFrom(event);
-    const centerY = fingerCenterY(first, second);
-    state = {
-      type: "twoFingers",
-      first,
-      second,
-      startedAt,
-      startCenterY: centerY,
-      lastCenterY: centerY,
-      moved,
-      releasedFingerId: null,
-    };
-  }
-
-  function handleTwoFingers(
-    current: Extract<State, { type: "twoFingers" }>,
-    event: GestureEvent,
-  ): void {
-    if (event === "hold") return;
-
-    if (event.type === "pointerdown") {
-      if (current.releasedFingerId === null) {
-        state = {
-          type: "dragging",
-          fingers: [current.first, current.second, fingerFrom(event)],
-        };
-        onDragStart();
-        return;
-      }
-
-      const fingers = trackedFingers();
-      fingers.add(event.pointerId);
-      state = { type: "blocked", fingers };
       return;
     }
 
     if (event.type === "pointercancel") {
-      const fingers = trackedFingers();
-      fingers.delete(event.pointerId);
-      state = fingers.size === 0 ? { type: "idle" } : { type: "blocked", fingers };
-      return;
+      cancelLongPressTimer();
+      state = { type: "idle" };
     }
-
-    if (event.type !== "pointermove" && event.type !== "pointerup") return;
-
-    const first = event.pointerId === current.first.id
-      ? moveFinger(current.first, event) : current.first;
-    const second = event.pointerId === current.second.id
-      ? moveFinger(current.second, event) : current.second;
-    const centerY = fingerCenterY(first, second);
-    const moved = current.moved ||
-      distanceFromStart(first) >= MOVE_THRESHOLD ||
-      distanceFromStart(second) >= MOVE_THRESHOLD;
-    const withinTapTime = event.timeStamp - current.startedAt <= TWO_FINGER_TAP_MS;
-
-    state = { ...current, first, second, moved, lastCenterY: centerY };
-
-    // Both fingers must finish a short, stationary gesture. Once one lifts,
-    // the remaining finger can only complete or cancel the right-click.
-    if (current.releasedFingerId !== null) {
-      if (event.type === "pointerup") {
-        state = { type: "idle" };
-        if (!moved && withinTapTime) onRightClick();
-      } else if (moved || !withinTapTime) {
-        state = { type: "blocked", fingers: new Set([event.pointerId]) };
-      }
-      return;
-    }
-
-    const dy = current.moved
-      ? centerY - current.lastCenterY
-      : centerY - current.startCenterY;
-
-    if (event.type === "pointerup") {
-      const remainingId = event.pointerId === first.id ? second.id : first.id;
-      state = moved || !withinTapTime
-        ? { type: "blocked", fingers: new Set([remainingId]) }
-        : { ...state, releasedFingerId: event.pointerId };
-    }
-
-    // Preserve the existing scroll direction; UI scaling stays in gestures.ts.
-    if (moved && dy !== 0) onScroll(dy);
   }
 
-  // ==========================================================
-  // DRAGGING
-  //
-  // Started by:
-  //
-  // third finger touches down while two fingers are still held
-  //
-  // Drag state emits:
-  //
-  // enter    -> onDragStart()
-  // movement -> onMove(dx, dy)
-  // any release / cancellation / fourth finger -> onDragEnd()
-  //
-  // The gesture layer does NOT decide how native dragging
-  // works. That's the responsibility of the input backend.
-  // ==========================================================
-
-  function handleDragging(
-    current: Extract<State, { type: "dragging" }>,
+  function handleOneFingerMoving(
+    current: Extract<State, { type: "oneFingerMoving" }>,
     event: GestureEvent,
   ): void {
-    if (event === "hold") return;
-
-    if (event.type === "pointerdown") {
-      const fingers = trackedFingers();
-      fingers.add(event.pointerId);
-      state = { type: "blocked", fingers };
-      onDragEnd();
+    if (event === "longPressThreshold") {
       return;
     }
 
-    const finger = current.fingers.find(finger => finger.id === event.pointerId);
-    if (!finger) return;
+    if (event.type === "pointerdown") {
+      startTwoFingerScrolling(current.finger, event);
+      return;
+    }
 
-    // One event updates one finger. This is the change of the three-finger
-    // center, so moving all three together preserves the normal pointer speed.
+    if (event.pointerId !== current.finger.id) {
+      return;
+    }
+
+    if (event.type === "pointermove") {
+      const nextFinger = updateFingerFromEvent(current.finger, event);
+
+      state = {
+        type: "oneFingerMoving",
+        finger: nextFinger,
+      };
+
+      handlers.onMove(nextFinger.x - current.finger.x, nextFinger.y - current.finger.y);
+      return;
+    }
+
+    if (event.type === "pointerup") {
+      state = { type: "idle" };
+
+      handlers.onMove(
+        event.clientX - current.finger.x,
+        event.clientY - current.finger.y,
+      );
+      return;
+    }
+
+    if (event.type === "pointercancel") {
+      state = { type: "idle" };
+    }
+  }
+
+  function handleLongPressReady(
+    current: Extract<State, { type: "longPressReady" }>,
+    event: GestureEvent,
+  ): void {
+    if (event === "longPressThreshold") {
+      return;
+    }
+
+    if (event.type === "pointerdown") {
+      startTwoFingerScrolling(current.finger, event);
+      handlers.onLongPressCancel();
+      return;
+    }
+
+    if (event.pointerId !== current.finger.id) {
+      return;
+    }
+
+    if (event.type === "pointermove") {
+      // Once the threshold has been reached, movement no longer changes the
+      // classification. The long press commits on normal release.
+      state = {
+        ...current,
+        finger: updateFingerFromEvent(current.finger, event),
+      };
+      return;
+    }
+
+    state = { type: "idle" };
+
+    if (event.type === "pointerup") {
+      handlers.onLongPress();
+    }
+
+    if (event.type === "pointercancel") {
+      handlers.onLongPressCancel();
+    }
+  }
+
+  function startTwoFingerPending(
+    firstFinger: Finger,
+    event: PointerEvent,
+    firstFingerDownAt: number,
+  ): void {
+    cancelLongPressTimer();
+
+    // Timing continues from the first contact, while movement starts fresh
+    // when the second finger arrives.
+    const first = resetMovementStart(firstFinger);
+    const second = fingerFromEvent(event);
+
+    state = {
+      type: "twoFingerPending",
+      firstFinger: first,
+      secondFinger: second,
+      firstFingerDownAt,
+      initialCenterY: fingerCenterY(first, second),
+    };
+  }
+
+  function handleTwoFingerPending(
+    current: Extract<State, { type: "twoFingerPending" }>,
+    event: GestureEvent,
+  ): void {
+    if (event === "longPressThreshold") {
+      return;
+    }
+
+    if (event.type === "pointerdown") {
+      startThreeFingerDragging(current.firstFinger, current.secondFinger, event);
+      return;
+    }
+
+    if (event.type === "pointercancel") {
+      blockTrackedFingersWithout(event.pointerId);
+      return;
+    }
+
+    if (
+      (event.type !== "pointermove" && event.type !== "pointerup") ||
+      (event.pointerId !== current.firstFinger.id &&
+        event.pointerId !== current.secondFinger.id)
+    ) {
+      return;
+    }
+
+    const firstFinger =
+      event.pointerId === current.firstFinger.id
+        ? updateFingerFromEvent(current.firstFinger, event)
+        : current.firstFinger;
+
+    const secondFinger =
+      event.pointerId === current.secondFinger.id
+        ? updateFingerFromEvent(current.secondFinger, event)
+        : current.secondFinger;
+
+    const centerY = fingerCenterY(firstFinger, secondFinger);
+
+    const moved =
+      distanceFromStart(firstFinger) >= MOVE_THRESHOLD_PX ||
+      distanceFromStart(secondFinger) >= MOVE_THRESHOLD_PX;
+
+    const withinTapTime =
+      event.timeStamp - current.firstFingerDownAt <= TWO_FINGER_TAP_TIMEOUT_MS;
+
+    if (event.type === "pointermove") {
+      if (!moved) {
+        state = {
+          ...current,
+          firstFinger,
+          secondFinger,
+        };
+        return;
+      }
+
+      state = {
+        type: "twoFingerScrolling",
+        firstFinger,
+        secondFinger,
+        lastCenterY: centerY,
+      };
+
+      const dy = centerY - current.initialCenterY;
+
+      if (dy !== 0) {
+        handlers.onScroll(dy);
+      }
+
+      return;
+    }
+
+    const remainingFinger =
+      event.pointerId === firstFinger.id ? secondFinger : firstFinger;
+
+    if (moved || !withinTapTime) {
+      state = {
+        type: "blockedUntilRelease",
+        fingerIds: new Set([remainingFinger.id]),
+      };
+
+      const dy = centerY - current.initialCenterY;
+
+      if (moved && dy !== 0) {
+        handlers.onScroll(dy);
+      }
+
+      return;
+    }
+
+    state = {
+      type: "rightClickPending",
+      remainingFinger,
+      firstFingerDownAt: current.firstFingerDownAt,
+    };
+  }
+
+  function handleRightClickPending(
+    current: Extract<State, { type: "rightClickPending" }>,
+    event: GestureEvent,
+  ): void {
+    if (event === "longPressThreshold") {
+      return;
+    }
+
+    if (event.type === "pointerdown") {
+      state = {
+        type: "blockedUntilRelease",
+        fingerIds: new Set([current.remainingFinger.id, event.pointerId]),
+      };
+      return;
+    }
+
+    if (event.pointerId !== current.remainingFinger.id) {
+      return;
+    }
+
+    if (event.type === "pointercancel") {
+      state = { type: "idle" };
+      return;
+    }
+
+    if (event.type !== "pointermove" && event.type !== "pointerup") {
+      return;
+    }
+
+    const remainingFinger = updateFingerFromEvent(current.remainingFinger, event);
+    const moved = distanceFromStart(remainingFinger) >= MOVE_THRESHOLD_PX;
+    const withinTapTime =
+      event.timeStamp - current.firstFingerDownAt <= TWO_FINGER_TAP_TIMEOUT_MS;
+
+    if (event.type === "pointermove") {
+      state =
+        moved || !withinTapTime
+          ? {
+              type: "blockedUntilRelease",
+              fingerIds: new Set([remainingFinger.id]),
+            }
+          : {
+              ...current,
+              remainingFinger,
+            };
+
+      return;
+    }
+
+    state = { type: "idle" };
+
+    if (!moved && withinTapTime) {
+      handlers.onRightClick();
+    }
+  }
+
+  function startTwoFingerScrolling(firstFinger: Finger, event: PointerEvent): void {
+    cancelLongPressTimer();
+
+    const first = resetMovementStart(firstFinger);
+    const second = fingerFromEvent(event);
+
+    state = {
+      type: "twoFingerScrolling",
+      firstFinger: first,
+      secondFinger: second,
+      lastCenterY: fingerCenterY(first, second),
+    };
+  }
+
+  function handleTwoFingerScrolling(
+    current: Extract<State, { type: "twoFingerScrolling" }>,
+    event: GestureEvent,
+  ): void {
+    if (event === "longPressThreshold") {
+      return;
+    }
+
+    if (event.type === "pointerdown") {
+      startThreeFingerDragging(current.firstFinger, current.secondFinger, event);
+      return;
+    }
+
+    if (event.type === "pointercancel") {
+      blockTrackedFingersWithout(event.pointerId);
+      return;
+    }
+
+    if (
+      (event.type !== "pointermove" && event.type !== "pointerup") ||
+      (event.pointerId !== current.firstFinger.id &&
+        event.pointerId !== current.secondFinger.id)
+    ) {
+      return;
+    }
+
+    const firstFinger =
+      event.pointerId === current.firstFinger.id
+        ? updateFingerFromEvent(current.firstFinger, event)
+        : current.firstFinger;
+
+    const secondFinger =
+      event.pointerId === current.secondFinger.id
+        ? updateFingerFromEvent(current.secondFinger, event)
+        : current.secondFinger;
+
+    const centerY = fingerCenterY(firstFinger, secondFinger);
+    const dy = centerY - current.lastCenterY;
+
+    if (event.type === "pointermove") {
+      state = {
+        type: "twoFingerScrolling",
+        firstFinger,
+        secondFinger,
+        lastCenterY: centerY,
+      };
+
+      if (dy !== 0) {
+        handlers.onScroll(dy);
+      }
+
+      return;
+    }
+
+    const remainingFingerId =
+      event.pointerId === firstFinger.id ? secondFinger.id : firstFinger.id;
+
+    state = {
+      type: "blockedUntilRelease",
+      fingerIds: new Set([remainingFingerId]),
+    };
+
+    if (dy !== 0) {
+      handlers.onScroll(dy);
+    }
+  }
+
+  function startThreeFingerDragging(
+    firstFinger: Finger,
+    secondFinger: Finger,
+    event: PointerEvent,
+  ): void {
+    state = {
+      type: "threeFingerDragging",
+      fingers: [firstFinger, secondFinger, fingerFromEvent(event)],
+    };
+
+    handlers.onDragStart();
+  }
+
+  function handleThreeFingerDragging(
+    current: Extract<State, { type: "threeFingerDragging" }>,
+    event: GestureEvent,
+  ): void {
+    if (event === "longPressThreshold") {
+      return;
+    }
+
+    if (event.type === "pointerdown") {
+      state = {
+        type: "blockedUntilRelease",
+        fingerIds: new Set([
+          ...current.fingers.map((finger) => finger.id),
+          event.pointerId,
+        ]),
+      };
+
+      handlers.onDragEnd();
+      return;
+    }
+
+    const index = current.fingers.findIndex((finger) => finger.id === event.pointerId);
+
+    if (index < 0) {
+      return;
+    }
+
+    const finger = current.fingers[index];
+
+    // Pointer events arrive one finger at a time. Dividing each contribution
+    // makes their accumulated movement follow the three-finger center.
     const dx = (event.clientX - finger.x) / current.fingers.length;
     const dy = (event.clientY - finger.y) / current.fingers.length;
 
     if (event.type === "pointermove") {
+      const fingers = [...current.fingers] as [Finger, Finger, Finger];
+      fingers[index] = updateFingerFromEvent(finger, event);
+
       state = {
-        ...current,
-        fingers: current.fingers.map(finger =>
-          finger.id === event.pointerId ? moveFinger(finger, event) : finger),
+        type: "threeFingerDragging",
+        fingers,
       };
-      if (dx !== 0 || dy !== 0) onMove(dx, dy);
+
+      if (dx !== 0 || dy !== 0) {
+        handlers.onMove(dx, dy);
+      }
+
       return;
     }
 
     if (event.type === "pointerup" || event.type === "pointercancel") {
       state = {
-        type: "blocked",
-        fingers: new Set(current.fingers
-          .filter(finger => finger.id !== event.pointerId)
-          .map(finger => finger.id)),
+        type: "blockedUntilRelease",
+        fingerIds: new Set(
+          current.fingers
+            .filter((item) => item.id !== event.pointerId)
+            .map((item) => item.id),
+        ),
       };
+
       try {
-        // Include the release position before ending drag, without changing
-        // the center to that of the two remaining fingers.
-        if (event.type === "pointerup" && (dx !== 0 || dy !== 0)) onMove(dx, dy);
+        if (event.type === "pointerup" && (dx !== 0 || dy !== 0)) {
+          handlers.onMove(dx, dy);
+        }
       } finally {
-        onDragEnd();
+        handlers.onDragEnd();
       }
     }
   }
 
-  // ==========================================================
-  // BLOCKED
-  //
-  // Ignore everything until every involved finger has gone.
-  // ==========================================================
-
-  function handleBlocked(
-    current: Extract<State, { type: "blocked" }>,
+  function handleBlockedUntilRelease(
+    current: Extract<State, { type: "blockedUntilRelease" }>,
     event: GestureEvent,
   ): void {
-    if (event === "hold") {
+    if (event === "longPressThreshold" || event.type === "pointermove") {
       return;
     }
+
+    const fingerIds = new Set(current.fingerIds);
 
     if (event.type === "pointerdown") {
-      const fingers =
-        new Set(current.fingers);
-
-      fingers.add(
-        event.pointerId,
-      );
-
-      state = {
-        type: "blocked",
-        fingers,
-      };
-
+      fingerIds.add(event.pointerId);
+    } else if (event.type === "pointerup" || event.type === "pointercancel") {
+      fingerIds.delete(event.pointerId);
+    } else {
       return;
     }
 
-    if (
-      event.type === "pointerup" ||
-      event.type === "pointercancel"
-    ) {
-      const fingers =
-        new Set(current.fingers);
+    state =
+      fingerIds.size === 0
+        ? { type: "idle" }
+        : {
+            type: "blockedUntilRelease",
+            fingerIds,
+          };
+  }
 
-      fingers.delete(
-        event.pointerId,
-      );
+  function startLongPressTimer(): void {
+    cancelLongPressTimer();
 
-      state =
-        fingers.size === 0
-          ? {
-              type: "idle",
-            }
-          : {
-              type: "blocked",
-              fingers,
-            };
+    const generation = longPressTimerGeneration;
+
+    longPressTimer = setTimeout(() => {
+      if (generation !== longPressTimerGeneration) {
+        return;
+      }
+
+      longPressTimer = null;
+      handleGestureEvent("longPressThreshold");
+    }, LONG_PRESS_THRESHOLD_MS);
+  }
+
+  function cancelLongPressTimer(): void {
+    longPressTimerGeneration++;
+
+    if (longPressTimer === null) {
+      return;
+    }
+
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+
+  function trackedFingerIds(): Set<number> {
+    switch (state.type) {
+      case "idle":
+        return new Set();
+
+      case "oneFingerPending":
+      case "oneFingerMoving":
+      case "longPressReady":
+        return new Set([state.finger.id]);
+
+      case "twoFingerPending":
+      case "twoFingerScrolling":
+        return new Set([state.firstFinger.id, state.secondFinger.id]);
+
+      case "rightClickPending":
+        return new Set([state.remainingFinger.id]);
+
+      case "threeFingerDragging":
+        return new Set(state.fingers.map((finger) => finger.id));
+
+      case "blockedUntilRelease":
+        return state.fingerIds;
     }
   }
 
-  // ==========================================================
-  // Browser events
-  //
-  // There is deliberately no translation layer here.
-  // PointerEvents go directly into the state machine.
-  // ==========================================================
+  function blockTrackedFingersWithout(pointerId: number): void {
+    const fingerIds = trackedFingerIds();
+    fingerIds.delete(pointerId);
 
-  function handlePointerEvent(
-    event: PointerEvent,
-  ): void {
-    const tracked = trackedFingers().has(event.pointerId);
+    state =
+      fingerIds.size === 0
+        ? { type: "idle" }
+        : {
+            type: "blockedUntilRelease",
+            fingerIds,
+          };
+  }
+
+  function cancelActiveGesture(): void {
+    const current = state;
+    const fingerIds = trackedFingerIds();
+
+    cancelLongPressTimer();
+
+    state =
+      fingerIds.size === 0
+        ? { type: "idle" }
+        : {
+            type: "blockedUntilRelease",
+            fingerIds,
+          };
+
+    if (current.type === "threeFingerDragging") {
+      handlers.onDragEnd();
+    }
+
+    if (current.type === "longPressReady") {
+      handlers.onLongPressCancel();
+    }
+  }
+
+  function resetGestureState(): void {
+    cancelActiveGesture();
+    state = { type: "idle" };
+  }
+
+  function handlePointerEvent(event: PointerEvent): void {
+    const tracked = trackedFingerIds().has(event.pointerId);
+
     if (event.type === "pointerdown" ? event.button !== 0 || tracked : !tracked) {
       return;
     }
 
     event.preventDefault();
 
-    if (
-      event.type === "pointerdown"
-    ) {
+    if (event.type === "pointerdown") {
       try {
-        root.setPointerCapture(
-          event.pointerId,
-        );
+        root.setPointerCapture(event.pointerId);
       } catch {
-        // Don't arm a hold for a pointer whose lifetime we cannot capture.
-        cancelGesture();
+        cancelActiveGesture();
         return;
       }
     }
 
-    handle(event);
+    handleGestureEvent(event);
   }
 
-  function trackedFingers(): Set<number> {
-    switch (state.type) {
-      case "idle": return new Set();
-      case "oneFinger":
-      case "moving":
-      case "longPress": return new Set([state.finger.id]);
-      case "dragging": return new Set(state.fingers.map(finger => finger.id));
-      case "twoFingers": {
-        const { first, second, releasedFingerId } = state;
-        return new Set([first.id, second.id].filter(id => id !== releasedFingerId));
-      }
-      case "blocked": return state.fingers;
+  function handleLostPointerCapture(event: PointerEvent): void {
+    if (trackedFingerIds().has(event.pointerId)) {
+      cancelActiveGesture();
     }
   }
 
-  function cancelGesture(): void {
-    const current = state;
-    const fingers = trackedFingers();
-    cancelHoldTimer();
-    state = fingers.size === 0 ? { type: "idle" } : { type: "blocked", fingers };
-    if (current.type === "dragging") onDragEnd();
-    if (current.type === "longPress") onLongPressCancel();
+  function handleVisibilityChange(): void {
+    if (document.visibilityState === "hidden") {
+      resetGestureState();
+    }
   }
 
-  function resetGestures(): void {
-    cancelGesture();
-    // A hidden/unloaded page may never receive the remaining releases.
-    state = { type: "idle" };
-  }
+  root.addEventListener("lostpointercapture", handleLostPointerCapture);
 
-  root.addEventListener("lostpointercapture", (event) => {
-    // Normal capture release follows pointerup, whose ID is already gone.
-    if (trackedFingers().has(event.pointerId)) cancelGesture();
-  });
-  window.addEventListener("blur", cancelGesture);
-  window.addEventListener("pagehide", resetGestures);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") resetGestures();
-  });
+  window.addEventListener("blur", cancelActiveGesture);
+  window.addEventListener("pagehide", resetGestureState);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  root.addEventListener(
-    "pointerdown",
-    handlePointerEvent,
-  );
+  root.addEventListener("pointerdown", handlePointerEvent);
+  window.addEventListener("pointermove", handlePointerEvent);
+  window.addEventListener("pointerup", handlePointerEvent);
+  window.addEventListener("pointercancel", handlePointerEvent);
 
-  window.addEventListener(
-    "pointermove",
-    handlePointerEvent,
-  );
-
-  window.addEventListener(
-    "pointerup",
-    handlePointerEvent,
-  );
-
-  window.addEventListener(
-    "pointercancel",
-    handlePointerEvent,
-  );
-
-  return cancelGesture;
+  return cancelActiveGesture;
 }
 
-// ============================================================
-// Geometry helpers
-// ============================================================
-
-function fingerFrom(
-  event: PointerEvent,
-): Finger {
+function fingerFromEvent(event: PointerEvent): Finger {
   return {
     id: event.pointerId,
-
     x: event.clientX,
     y: event.clientY,
-
     startX: event.clientX,
     startY: event.clientY,
   };
 }
 
-function moveFinger(
-  finger: Finger,
-  event: PointerEvent,
-): Finger {
+function updateFingerFromEvent(finger: Finger, event: PointerEvent): Finger {
   return {
     ...finger,
-
     x: event.clientX,
     y: event.clientY,
   };
 }
 
-function resetStart(
-  finger: Finger,
-): Finger {
+function resetMovementStart(finger: Finger): Finger {
   return {
     ...finger,
-
     startX: finger.x,
     startY: finger.y,
   };
 }
 
-function distanceFromStart(
-  finger: Finger,
-): number {
-  return Math.hypot(
-    finger.x - finger.startX,
-    finger.y - finger.startY,
-  );
+function distanceFromStart(finger: Finger): number {
+  return Math.hypot(finger.x - finger.startX, finger.y - finger.startY);
 }
 
-function fingerCenterY(
-  first: Finger,
-  second: Finger,
-): number {
-  return (
-    first.y + second.y
-  ) / 2;
+function fingerCenterY(firstFinger: Finger, secondFinger: Finger): number {
+  return (firstFinger.y + secondFinger.y) / 2;
 }
-

@@ -1,5 +1,5 @@
 import { requiredElement } from "./dom.js";
-import { mountGestures as mountRecognizer, type GestureHandlers } from "./gestureRecognizer.js";
+import { attachGestureRecognizer, type GestureHandlers } from "./gestureRecognizer.js";
 
 export type { GestureHandlers } from "./gestureRecognizer.js";
 
@@ -20,7 +20,7 @@ export function mountGestures(root: HTMLElement, handlers: GestureHandlers): () 
     scrollRemainder = 0;
   });
 
-  return mountRecognizer(touchArea, {
+  return attachGestureRecognizer(touchArea, {
     ...handlers,
     onMove(dx, dy) {
       const rawX = dx * POINTER_SENSITIVITY + pointerRemainderX;

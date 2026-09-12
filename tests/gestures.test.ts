@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { mountGestures as mountUiGestures, type GestureHandlers } from "../client/ui/touchpad";
-import { mountGestures } from "../client/ui/gestureRecognizer";
+import { mountGestures, type GestureHandlers } from "../client/ui/touchpad";
+import { attachGestureRecognizer } from "../client/ui/gestureRecognizer";
 
 // Exercise real event listeners and timers without adding a DOM dependency.
 // Device-level capture and virtual-keyboard behavior still need a phone test.
@@ -31,8 +31,8 @@ function setup(ui = false) {
     onDragEnd: vi.fn<GestureHandlers["onDragEnd"]>(),
   };
   const cancel = ui
-    ? mountUiGestures(root as unknown as HTMLElement, handlers)
-    : mountGestures(touchArea as unknown as HTMLElement, handlers);
+    ? mountGestures(root as unknown as HTMLElement, handlers)
+    : attachGestureRecognizer(touchArea as unknown as HTMLElement, handlers);
 
   function send(type: string, id = 1, x = 100, y = 100, time = Date.now(), target?: EventTarget) {
     const event = Object.assign(new Event(type, { cancelable: true }), {
