@@ -4,23 +4,15 @@ import cookieParser from "cookie-parser";
 
 import { Bonjour } from "bonjour-service";
 
-import {
-  getLocalUrls,
-  mdnsHostname,
-  mdnsUrl,
-  port,
-} from "./network";
+import { getLocalUrls, mdnsHostname, mdnsUrl, port } from "./network";
 
 import { robotJsInput } from "./robotJsInput";
 import { createApi } from "./api";
 import { auth } from "./auth";
 
-const bonjour = new Bonjour(
-  undefined,
-  (error: any) => {
-    console.error("mDNS error:", error);
-  },
-);
+const bonjour = new Bonjour(undefined, (error: unknown) => {
+  console.error("mDNS error:", error);
+});
 
 const app = express();
 

@@ -1,18 +1,8 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  Menu,
-  screen,
-  Tray,
-} from "electron";
+import { app, BrowserWindow, clipboard, Menu, screen, Tray } from "electron";
 import path from "node:path";
 import QRCode from "qrcode";
 
-import {
-  getLocalUrls,
-  mdnsUrl,
-} from "./network.js";
+import { getLocalUrls, mdnsUrl } from "./network.js";
 import { auth } from "./auth.js";
 
 let tray: Tray | null = null;
@@ -22,12 +12,7 @@ app.whenReady().then(async () => {
   const { releasePointer } = await import("./server.js");
   app.on("will-quit", releasePointer);
 
-  const iconPath = path.join(
-    __dirname,
-    "..",
-    "assets",
-    "tray.ico",
-  );
+  const iconPath = path.join(__dirname, "..", "assets", "tray.ico");
 
   tray = new Tray(iconPath);
   qrWindow = createQrWindow();
@@ -110,37 +95,23 @@ async function showPairingWindow(): Promise<void> {
   const localUrl = getLocalUrls()[0];
 
   if (!localUrl) {
-    console.error(
-      "[electron] No local network address found",
-    );
+    console.error("[electron] No local network address found");
 
     return;
   }
 
-  const {
-    secret,
-    code,
-  } = auth.openPairingWindow();
+  const { secret, code } = auth.openPairingWindow();
 
   try {
-    const pairingUrl =
-      `${localUrl}/#pair=${encodeURIComponent(secret)}`;
+    const pairingUrl = `${localUrl}/#pair=${encodeURIComponent(secret)}`;
 
-    const qrCode = await QRCode.toString(
-      pairingUrl,
-      {
-        type: "svg",
-        width: 180,
-        margin: 1,
-      },
-    );
+    const qrCode = await QRCode.toString(pairingUrl, {
+      type: "svg",
+      width: 180,
+      margin: 1,
+    });
 
-    const html = createQrHtml(
-      qrCode,
-      mdnsUrl,
-      localUrl,
-      code,
-    );
+    const html = createQrHtml(qrCode, mdnsUrl, localUrl, code);
 
     await qrWindow.loadURL(
       `data:text/html;charset=UTF-8,${encodeURIComponent(html)}`,
@@ -151,16 +122,11 @@ async function showPairingWindow(): Promise<void> {
     qrWindow.show();
     qrWindow.focus();
 
-    console.log(
-      "[electron] QR window opened",
-    );
+    console.log("[electron] QR window opened");
   } catch (error) {
     auth.closePairingWindow();
 
-    console.error(
-      "[electron] Failed to open QR window:",
-      error,
-    );
+    console.error("[electron] Failed to open QR window:", error);
 
     throw error;
   }
@@ -173,9 +139,7 @@ function hidePairingWindow(): void {
 
   qrWindow.hide();
 
-  console.log(
-    "[electron] QR window closed",
-  );
+  console.log("[electron] QR window closed");
 
   auth.closePairingWindow();
 }
@@ -195,48 +159,19 @@ function positionQrWindow(): void {
 
   const { workArea } = display;
 
-  let x =
-    trayBounds.x +
-    trayBounds.width / 2 -
-    windowBounds.width / 2;
+  let x = trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2;
 
-  let y =
-    trayBounds.y -
-    windowBounds.height -
-    8;
+  let y = trayBounds.y - windowBounds.height - 8;
 
-  x = clamp(
-    x,
-    workArea.x,
-    workArea.x +
-      workArea.width -
-      windowBounds.width,
-  );
+  x = clamp(x, workArea.x, workArea.x + workArea.width - windowBounds.width);
 
-  y = clamp(
-    y,
-    workArea.y,
-    workArea.y +
-      workArea.height -
-      windowBounds.height,
-  );
+  y = clamp(y, workArea.y, workArea.y + workArea.height - windowBounds.height);
 
-  qrWindow.setPosition(
-    Math.round(x),
-    Math.round(y),
-    false,
-  );
+  qrWindow.setPosition(Math.round(x), Math.round(y), false);
 }
 
-function clamp(
-  value: number,
-  min: number,
-  max: number,
-): number {
-  return Math.max(
-    min,
-    Math.min(max, value),
-  );
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function createQrHtml(
@@ -245,8 +180,7 @@ function createQrHtml(
   fallbackAddress: string,
   pairingCode: string,
 ): string {
-  const formattedCode =
-    `${pairingCode.slice(0, 3)} ${pairingCode.slice(3)}`;
+  const formattedCode = `${pairingCode.slice(0, 3)} ${pairingCode.slice(3)}`;
 
   return `
     <!doctype html>

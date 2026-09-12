@@ -9,229 +9,209 @@ export const maxPointerDelta = 500;
 export const maxScrollDelta = 20;
 
 export function createApi(input: Input, auth: Auth) {
-    const router = express.Router();
+  const router = express.Router();
 
-    // Exchange a short-lived pairing secret for an authenticated session.
-    router.post("/pair", (request, response) => {
-        const body: unknown = request.body;
-        const client = request.socket.remoteAddress ?? "unknown";
+  // Exchange a short-lived pairing secret for an authenticated session.
+  router.post("/pair", (request, response) => {
+    const body: unknown = request.body;
+    const client = request.socket.remoteAddress ?? "unknown";
 
-        console.log(`[api] Pairing request from ${client}`);
+    console.log(`[api] Pairing request from ${client}`);
 
-        if (
-            !isRecord(body) ||
-            typeof body.credential !== "string"
-        ) {
-            console.warn(
-                `[api] Rejected invalid pairing request from ${client}`,
-            );
+    if (!isRecord(body) || typeof body.credential !== "string") {
+      console.warn(`[api] Rejected invalid pairing request from ${client}`);
 
-            response
-                .status(400)
-                .json({ error: "Invalid pairing request" });
+      response.status(400).json({ error: "Invalid pairing request" });
 
-            return;
-        }
+      return;
+    }
 
-        const session = auth.pair(body.credential);
+    const session = auth.pair(body.credential);
 
-        if (session === null) {
-            console.warn(
-                `[api] Pairing failed for ${client}: invalid or expired credential`,
-            );
+    if (session === null) {
+      console.warn(
+        `[api] Pairing failed for ${client}: invalid or expired credential`,
+      );
 
-            response
-                .status(401)
-                .json({
-                    error: "Invalid or expired pairing secret",
-                });
+      response.status(401).json({
+        error: "Invalid or expired pairing secret",
+      });
 
-            return;
-        }
+      return;
+    }
 
-        response.cookie(
-            sessionCookieName,
-            session,
-            {
-                httpOnly: true,
-                sameSite: "strict",
-                path: "/api",
-                maxAge: sessionDurationMs,
-            },
-        );
-
-        console.log(
-            `[api] Pairing successful for ${client}`,
-        );
-
-        response.sendStatus(204);
+    response.cookie(sessionCookieName, session, {
+      httpOnly: true,
+      sameSite: "strict",
+      path: "/api",
+      maxAge: sessionDurationMs,
     });
 
-    // All API routes below this middleware require a valid session cookie.
-    router.use((request, response, next) => {
-        const session: unknown =
-            request.cookies?.[sessionCookieName];
+    console.log(`[api] Pairing successful for ${client}`);
 
-        if (
-            typeof session !== "string" ||
-            !auth.isSessionValid(session)
-        ) {
-            const client =
-                request.socket.remoteAddress ?? "unknown";
+    response.sendStatus(204);
+  });
 
-            console.warn(
-                `[api] Unauthorized ${request.method} ${request.originalUrl} from ${client}`,
-            );
+  // All API routes below this middleware require a valid session cookie.
+  router.use((request, response, next) => {
+    const session: unknown = request.cookies?.[sessionCookieName];
 
-            response.sendStatus(401);
-            return;
-        }
+    if (typeof session !== "string" || !auth.isSessionValid(session)) {
+      const client = request.socket.remoteAddress ?? "unknown";
 
-        next();
-    });
+      console.warn(
+        `[api] Unauthorized ${request.method} ${request.originalUrl} from ${client}`,
+      );
 
-    router.get("/session", (_request, response) => {
-        response.sendStatus(204);
-    });
+      response.sendStatus(401);
+      return;
+    }
 
-    // Execute one of the predefined remote actions, such as click,
-    // volume control, or navigation keys.
-    router.post("/action", (request, response) => {
-        const body: unknown = request.body;
+    next();
+  });
 
-        if (!isRecord(body) || !isRemoteAction(body.action)) {
-            response.status(400).json({ error: "Invalid action" });
-            return;
-        }
+  router.get("/session", (_request, response) => {
+    response.sendStatus(204);
+  });
 
-        input.executeAction(body.action);
+  // Execute one of the predefined remote actions, such as click,
+  // volume control, or navigation keys.
+  router.post("/action", (request, response) => {
+    const body: unknown = request.body;
 
-        response.sendStatus(204);
-    });
+    if (!isRecord(body) || !isRemoteAction(body.action)) {
+      response.status(400).json({ error: "Invalid action" });
+      return;
+    }
 
-    // Move the pointer relative to its current position.
-    router.post("/pointer", (request, response) => {
-        const body: unknown = request.body;
+    input.executeAction(body.action);
 
-        if (!isPointerMovement(body)) {
-            response.status(400).json({ error: "Invalid pointer movement" });
-            return;
-        }
+    response.sendStatus(204);
+  });
 
-        input.movePointer(body.dx, body.dy);
+  // Move the pointer relative to its current position.
+  router.post("/pointer", (request, response) => {
+    const body: unknown = request.body;
 
-        response.sendStatus(204);
-    });
+    if (!isPointerMovement(body)) {
+      response.status(400).json({ error: "Invalid pointer movement" });
+      return;
+    }
 
-    // Scroll vertically using a bounded relative delta.
-    router.post("/scroll", (request, response) => {
-        const body: unknown = request.body;
+    input.movePointer(body.dx, body.dy);
 
-        if (!isScrollMovement(body)) {
-            response.status(400).json({ error: "Invalid scroll movement" });
-            return;
-        }
+    response.sendStatus(204);
+  });
 
-        input.scroll(body.dy);
+  // Scroll vertically using a bounded relative delta.
+  router.post("/scroll", (request, response) => {
+    const body: unknown = request.body;
 
-        response.sendStatus(204);
-    });
+    if (!isScrollMovement(body)) {
+      response.status(400).json({ error: "Invalid scroll movement" });
+      return;
+    }
 
-    // Type arbitrary text on the host machine.
-    router.post("/text", (request, response) => {
-        const body: unknown = request.body;
+    input.scroll(body.dy);
 
-        // Reject invalid, empty, or excessively long text payloads.
-        if (
-            !isRecord(body) ||
-            typeof body.text !== "string" ||
-            body.text.length === 0 ||
-            body.text.length > maxTextLength
-        ) {
-            response.status(400).json({ error: "Invalid text" });
-            return;
-        }
+    response.sendStatus(204);
+  });
 
-        input.typeText(body.text);
+  // Type arbitrary text on the host machine.
+  router.post("/text", (request, response) => {
+    const body: unknown = request.body;
 
-        response.sendStatus(204);
-    });
+    // Reject invalid, empty, or excessively long text payloads.
+    if (
+      !isRecord(body) ||
+      typeof body.text !== "string" ||
+      body.text.length === 0 ||
+      body.text.length > maxTextLength
+    ) {
+      response.status(400).json({ error: "Invalid text" });
+      return;
+    }
 
-    // Central error handler for API routes.
-    // Client-side request errors are returned as 400 responses,
-    // while unexpected execution errors are hidden behind a generic 500 response.
-    const handleError: ErrorRequestHandler = (
-        error,
-        _request,
-        response,
-        _next,
-    ) => {
-        if (isClientRequestError(error)) {
-            response.status(400).json({ error: "Invalid request body" });
-            return;
-        }
+    input.typeText(body.text);
 
-        // Log the internal error without exposing implementation details to the client.
-        console.error(
-            "[api] Input execution failed:",
-            error instanceof Error ? error.message : error,
-        );
+    response.sendStatus(204);
+  });
 
-        response.status(500).json({ error: "Input could not be executed" });
-    };
+  // Central error handler for API routes.
+  // Client-side request errors are returned as 400 responses,
+  // while unexpected execution errors are hidden behind a generic 500 response.
+  const handleError: ErrorRequestHandler = (
+    error,
+    _request,
+    response,
+    _next,
+  ) => {
+    if (isClientRequestError(error)) {
+      response.status(400).json({ error: "Invalid request body" });
+      return;
+    }
 
-    router.use(handleError);
+    // Log the internal error without exposing implementation details to the client.
+    console.error(
+      "[api] Input execution failed:",
+      error instanceof Error ? error.message : error,
+    );
 
-    return router;
+    response.status(500).json({ error: "Input could not be executed" });
+  };
+
+  router.use(handleError);
+
+  return router;
 }
 
 // Runtime guard for plain object request bodies.
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Validate the structure and bounds of a pointer movement request.
 function isPointerMovement(
-    value: unknown,
+  value: unknown,
 ): value is { dx: number; dy: number } {
-    if (!isRecord(value)) {
-        return false;
-    }
+  if (!isRecord(value)) {
+    return false;
+  }
 
-    const { dx, dy } = value;
+  const { dx, dy } = value;
 
-    return isPointerDelta(dx) && isPointerDelta(dy) && (dx !== 0 || dy !== 0);
+  return isPointerDelta(dx) && isPointerDelta(dy) && (dx !== 0 || dy !== 0);
 }
 
 // Pointer deltas must be integers within the configured movement limit.
 function isPointerDelta(value: unknown): value is number {
-    return (
-        typeof value === "number" &&
-        Number.isInteger(value) &&
-        Math.abs(value) <= maxPointerDelta
-    );
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    Math.abs(value) <= maxPointerDelta
+  );
 }
 
 function isScrollMovement(value: unknown): value is { dy: number } {
-    if (!isRecord(value)) {
-        return false;
-    }
+  if (!isRecord(value)) {
+    return false;
+  }
 
-    const { dy } = value;
+  const { dy } = value;
 
-    return (
-        typeof dy === "number" &&
-        Number.isInteger(dy) &&
-        dy !== 0 &&
-        Math.abs(dy) <= maxScrollDelta
-    );
+  return (
+    typeof dy === "number" &&
+    Number.isInteger(dy) &&
+    dy !== 0 &&
+    Math.abs(dy) <= maxScrollDelta
+  );
 }
 
 // Detect request errors generated by Express or body-parsing middleware.
 function isClientRequestError(error: unknown): boolean {
-    if (!isRecord(error) || typeof error.status !== "number") {
-        return false;
-    }
+  if (!isRecord(error) || typeof error.status !== "number") {
+    return false;
+  }
 
-    return error.status >= 400 && error.status < 500;
+  return error.status >= 400 && error.status < 500;
 }

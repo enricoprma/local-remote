@@ -4,7 +4,13 @@
   "private": true,
   "main": "dist/electron.js",
   "scripts": {
+    "prepare": "husky",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "test": "vitest run",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test",
     "build": "tsc && npm run build:client",
     "build:client": "tsc -p tsconfig.client.json",
     "dev:server": "tsx watch src/server.ts",
@@ -15,6 +21,15 @@
     "typecheck": "tsc --noEmit && npm run typecheck:client",
     "typecheck:client": "tsc -p tsconfig.client.json --noEmit"
   },
+  "lint-staged": {
+    "*.{ts,mts,cts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
   "dependencies": {
     "@hurdlegroup/robotjs": "^0.12.3",
     "bonjour-service": "^1.4.4",
@@ -23,6 +38,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^26.4.1",
@@ -30,9 +46,15 @@
     "@types/supertest": "^7.2.1",
     "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "3.9.6",
     "supertest": "^7.2.2",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^4.1.11"
   },
   "build": {

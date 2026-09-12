@@ -10,10 +10,7 @@ export interface TextEntry {
 
 export function mountTextEntry(
   root: HTMLElement,
-  {
-    onText,
-    onEnter,
-  }: TextEntryOptions,
+  { onText, onEnter }: TextEntryOptions,
 ): TextEntry {
   const form = requiredElement(root, "#text-entry", HTMLFormElement);
   const input = requiredElement(root, "#text-input", HTMLInputElement);

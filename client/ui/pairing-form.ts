@@ -9,9 +9,7 @@ export interface PairingForm {
 
 export function mountPairingForm(
   root: HTMLElement,
-  {
-    onSubmit,
-  }: PairingFormOptions,
+  { onSubmit }: PairingFormOptions,
 ): PairingForm {
   const form = requiredElement(root, "#pairing-form", HTMLFormElement);
   const input = requiredElement(root, "#pairing-code", HTMLInputElement);

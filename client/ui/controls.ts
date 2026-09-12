@@ -11,10 +11,9 @@ export function mountControls(
       return;
     }
 
-    const button =
-      event.target.closest<HTMLButtonElement>(
-        "button[data-action]",
-      );
+    const button = event.target.closest<HTMLButtonElement>(
+      "button[data-action]",
+    );
 
     const action = button?.dataset.action;
 

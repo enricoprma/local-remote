@@ -14,8 +14,6 @@ export async function hasSession(): Promise<boolean> {
   }
 }
 
-export function pairWithCredential(
-  credential: string,
-): Promise<void> {
+export function pairWithCredential(credential: string): Promise<void> {
   return post(endpoints.pair, { credential });
 }

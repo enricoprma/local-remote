@@ -35,7 +35,11 @@ function send(command: () => Promise<void>, release = false): Promise<void> {
   return request;
 }
 
-function sendMovement(kind: "pointer" | "scroll", dx: number, dy: number): Promise<void> {
+function sendMovement(
+  kind: "pointer" | "scroll",
+  dx: number,
+  dy: number,
+): Promise<void> {
   if (queuedMovement?.kind === kind) {
     queuedMovement.delta.dx += dx;
     queuedMovement.delta.dy += dy;
@@ -64,13 +68,13 @@ function limit(value: number, max: number): number {
 export function action(action: string): Promise<void> {
   // Ending a drag must survive earlier request failures and page exit.
   const release = action === "end-drag";
-  return send(() => post(endpoints.action, { action }, { keepalive: release }), release);
+  return send(
+    () => post(endpoints.action, { action }, { keepalive: release }),
+    release,
+  );
 }
 
-export function movePointer(
-  dx: number,
-  dy: number,
-): Promise<void> {
+export function movePointer(dx: number, dy: number): Promise<void> {
   return sendMovement("pointer", dx, dy);
 }
 

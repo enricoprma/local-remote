@@ -29,10 +29,7 @@ export function post(
   });
 }
 
-async function request(
-  path: string,
-  options: RequestInit,
-): Promise<void> {
+async function request(path: string, options: RequestInit): Promise<void> {
   const response = await fetch(path, {
     ...options,
     signal: AbortSignal.timeout(5000),

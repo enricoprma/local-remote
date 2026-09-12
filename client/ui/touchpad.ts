@@ -1,5 +1,8 @@
 import { requiredElement } from "./dom.js";
-import { attachGestureRecognizer, type GestureHandlers } from "./gestureRecognizer.js";
+import {
+  attachGestureRecognizer,
+  type GestureHandlers,
+} from "./gestureRecognizer.js";
 
 export type { GestureHandlers } from "./gestureRecognizer.js";
 
@@ -8,7 +11,10 @@ const SCROLL_SENSITIVITY = 5;
 const MAX_POINTER_MOVE = 500;
 const MAX_SCROLL = 20;
 
-export function mountGestures(root: HTMLElement, handlers: GestureHandlers): () => void {
+export function mountGestures(
+  root: HTMLElement,
+  handlers: GestureHandlers,
+): () => void {
   const touchArea = requiredElement(root, "#touch-area", HTMLElement);
   let pointerRemainderX = 0;
   let pointerRemainderY = 0;

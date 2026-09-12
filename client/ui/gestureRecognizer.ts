@@ -191,7 +191,10 @@ export function attachGestureRecognizer(
 
       if (distanceFromStart(finger) >= MOVE_THRESHOLD_PX) {
         handlers.onMove(finger.x - finger.startX, finger.y - finger.startY);
-      } else if (event.timeStamp - current.pressedAt >= LONG_PRESS_THRESHOLD_MS) {
+      } else if (
+        event.timeStamp - current.pressedAt >=
+        LONG_PRESS_THRESHOLD_MS
+      ) {
         handlers.onLongPress();
       } else {
         handlers.onTap();
@@ -231,7 +234,10 @@ export function attachGestureRecognizer(
         finger: nextFinger,
       };
 
-      handlers.onMove(nextFinger.x - current.finger.x, nextFinger.y - current.finger.y);
+      handlers.onMove(
+        nextFinger.x - current.finger.x,
+        nextFinger.y - current.finger.y,
+      );
       return;
     }
 
@@ -319,7 +325,11 @@ export function attachGestureRecognizer(
     }
 
     if (event.type === "pointerdown") {
-      startThreeFingerDragging(current.firstFinger, current.secondFinger, event);
+      startThreeFingerDragging(
+        current.firstFinger,
+        current.secondFinger,
+        event,
+      );
       return;
     }
 
@@ -435,7 +445,10 @@ export function attachGestureRecognizer(
       return;
     }
 
-    const remainingFinger = updateFingerFromEvent(current.remainingFinger, event);
+    const remainingFinger = updateFingerFromEvent(
+      current.remainingFinger,
+      event,
+    );
     const moved = distanceFromStart(remainingFinger) >= MOVE_THRESHOLD_PX;
     const withinTapTime =
       event.timeStamp - current.firstFingerDownAt <= TWO_FINGER_TAP_TIMEOUT_MS;
@@ -462,7 +475,10 @@ export function attachGestureRecognizer(
     }
   }
 
-  function startTwoFingerScrolling(firstFinger: Finger, event: PointerEvent): void {
+  function startTwoFingerScrolling(
+    firstFinger: Finger,
+    event: PointerEvent,
+  ): void {
     cancelLongPressTimer();
 
     const first = resetMovementStart(firstFinger);
@@ -485,7 +501,11 @@ export function attachGestureRecognizer(
     }
 
     if (event.type === "pointerdown") {
-      startThreeFingerDragging(current.firstFinger, current.secondFinger, event);
+      startThreeFingerDragging(
+        current.firstFinger,
+        current.secondFinger,
+        event,
+      );
       return;
     }
 
@@ -577,7 +597,9 @@ export function attachGestureRecognizer(
       return;
     }
 
-    const index = current.fingers.findIndex((finger) => finger.id === event.pointerId);
+    const index = current.fingers.findIndex(
+      (finger) => finger.id === event.pointerId,
+    );
 
     if (index < 0) {
       return;
@@ -748,7 +770,9 @@ export function attachGestureRecognizer(
   function handlePointerEvent(event: PointerEvent): void {
     const tracked = trackedFingerIds().has(event.pointerId);
 
-    if (event.type === "pointerdown" ? event.button !== 0 || tracked : !tracked) {
+    if (
+      event.type === "pointerdown" ? event.button !== 0 || tracked : !tracked
+    ) {
       return;
     }
 

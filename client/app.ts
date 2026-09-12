@@ -10,7 +10,6 @@ import { mountTextEntry } from "./ui/text-entry.js";
 
 const root = requiredElement(document, "[data-app]", HTMLElement);
 const feedback = mountFeedback(root);
-let cancelGestures: (() => void) | undefined;
 const pairingForm = mountPairingForm(root, {
   onSubmit: handlePairing,
 });
@@ -22,11 +21,9 @@ const textEntry = mountTextEntry(root, {
   onEnter: () => runRemote(remote.action("enter")),
 });
 
-mountControls(root, (action) =>
-  runRemote(remote.action(action)),
-);
+mountControls(root, (action) => runRemote(remote.action(action)));
 
-cancelGestures = mountGestures(root, {
+const cancelGestures = mountGestures(root, {
   onTap: () => {
     void runRemote(remote.action("click"));
   },
@@ -74,9 +71,7 @@ async function initializePairing(): Promise<void> {
   }
 }
 
-async function handlePairing(
-  credential: string,
-): Promise<boolean> {
+async function handlePairing(credential: string): Promise<boolean> {
   try {
     await pairing.pairWithCredential(credential);
 
@@ -96,9 +91,7 @@ async function handlePairing(
   }
 }
 
-async function runRemote(
-  request: Promise<void>,
-): Promise<boolean> {
+async function runRemote(request: Promise<void>): Promise<boolean> {
   try {
     await request;
     return true;
