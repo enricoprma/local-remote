@@ -1,14 +1,58 @@
 # Local Remote
 
-Use your phone as a wireless touchpad and keyboard for your Windows PC over your local network.
+A browser-based wireless touchpad and keyboard for Windows.
 
-No mobile app required.
+No mobile app required. Scan the QR code and control your PC over your local network.
 
 <p align="start">
-  <img src="assets/screenshots/pairing.jpeg" width="240" alt="Local Remote pairing code">
-  <img src="assets/screenshots/touchpad.jpeg" width="240" alt="Local Remote touchpad">
-  <img src="assets/screenshots/keyboard.jpeg" width="240" alt="Local Remote text input">
+  <img src="assets/screenshots/showcase.gif" width=620 alt="Local Remote showcase">
 </p>
+
+## Features
+
+- Wireless touchpad and keyboard over LAN
+- Move, click, right-click, scroll and drag
+- Text input via long press
+- Volume / arrow-key controls
+- QR code and six-digit PIN pairing
+- Installable PWA
+- Portable Windows executable
+- Automatic drag recovery after connection loss
+
+## How it works
+
+```text
+Phone Browser / Installed PWA
+        │
+        ▼
+Web Client
+├── Touchpad & Gesture Recognition
+├── Controls & Text Input
+├── Pairing
+└── Remote / HTTP Client
+        │
+        │ HTTP over local network
+        ▼
+Desktop App
+├── Express API
+├── Authentication / Sessions
+├── Input Abstraction
+└── Electron Tray & Pairing UI
+        │
+        ▼
+RobotJS
+        │
+        ▼
+Windows
+```
+
+## Tech Stack
+
+- TypeScript
+- Electron
+- Node.js
+- Express
+- RobotJS
 
 ## Usage
 
@@ -49,6 +93,41 @@ Windows blocks simulated input from lower-privileged applications.
 
 If you want to control an application that is running as administrator, start **Local Remote as administrator as well**.
 
+## Screenshots
+
+<p align="start">
+  <img src="assets/screenshots/pairing.jpeg" width="240" alt="Local Remote pairing code">
+  <img src="assets/screenshots/touchpad.jpeg" width="240" alt="Local Remote touchpad">
+  <img src="assets/screenshots/keyboard.jpeg" width="240" alt="Local Remote text input">
+</p>
+
+## Security
+
+Local Remote is designed for trusted local networks.
+
+- Pairing codes expire after two minutes.
+- The pairing window closes after 10 failed pairing attempts.
+- Successful pairing creates a session valid for up to 24 hours.
+- Sessions are cleared when Local Remote restarts.
+- Traffic is not encrypted.
+- Only pair devices you trust and use Local Remote on trusted networks.
+
+## Development & Quality
+
+Testing:
+
+- Vitest
+- Supertest
+
+Automated checks:
+
+- ESLint
+- Prettier
+- TypeScript type checking
+- Unit/integration tests
+- Production build
+- GitHub Actions CI
+
 ## Build from source
 
 Requires:
@@ -60,10 +139,8 @@ Requires:
 ```powershell
 git clone https://github.com/enricoprma/local-remote.git
 cd local-remote
-npm install
+npm ci
 npm run dist
 ```
 
 The portable Windows executable is created in `release/`.
-
-> Control requires pairing, but traffic is not encrypted and the server listens on your local network. Pair only devices you trust and use Local Remote only on trusted networks. A paired browser remains authorized for up to 24 hours or until Local Remote restarts.
