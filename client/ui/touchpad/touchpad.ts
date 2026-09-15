@@ -1,4 +1,5 @@
 import { PointerGestureRecognizer } from "./gestures/pointer-gesture-recognizer.js";
+import { MAX_POINTER_MOVE, MAX_SCROLL } from "../../input-limits.js";
 import type {
   GestureHandlers,
   GestureRecognizer,
@@ -22,10 +23,9 @@ export interface TouchpadOptions {
   recognizer?: GestureRecognizerConstructor;
 }
 
-const DEFAULT_POINTER_SENSITIVITY = 4;
-const DEFAULT_SCROLL_SENSITIVITY = 5;
-const MAX_POINTER_MOVE = 500;
-const MAX_SCROLL = 20;
+export const DEFAULT_POINTER_SENSITIVITY = 4;
+export const DEFAULT_SCROLL_SENSITIVITY = 15;
+export { MAX_POINTER_MOVE, MAX_SCROLL };
 
 export class Touchpad {
   readonly #recognizer: GestureRecognizer;

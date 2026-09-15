@@ -1,6 +1,8 @@
 import { endpoints } from "./endpoints.js";
 import { post } from "./http.js";
 
+import { MAX_POINTER_MOVE, MAX_SCROLL } from "../input-limits.js";
+
 let pending: Promise<void> = Promise.resolve();
 let generation = 0;
 let queuedMovement: {
@@ -48,10 +50,12 @@ function sendMovement(
 
   const delta = { dx, dy };
   const request = send(() => {
-    // Clamp once at dispatch to the existing API limits. Excess movement
-    // is dropped instead of becoming more delayed requests after release.
-    const moveX = limit(delta.dx, 500);
-    const moveY = limit(delta.dy, kind === "pointer" ? 500 : 20);
+    // A batch can exceed the per-event touchpad limits after movements merge.
+    const moveX = limit(delta.dx, MAX_POINTER_MOVE);
+    const moveY = limit(
+      delta.dy,
+      kind === "pointer" ? MAX_POINTER_MOVE : MAX_SCROLL,
+    );
     if (moveX === 0 && moveY === 0) return Promise.resolve();
     return kind === "pointer"
       ? post(endpoints.pointer, { dx: moveX, dy: moveY })
@@ -61,8 +65,8 @@ function sendMovement(
   return request;
 }
 
-function limit(value: number, max: number): number {
-  return Math.max(-max, Math.min(max, value));
+function limit(value: number, maximum: number): number {
+  return Math.max(-maximum, Math.min(maximum, value));
 }
 
 export function action(action: string): Promise<void> {

@@ -6,7 +6,7 @@ import { Auth, sessionCookieName, sessionDurationMs } from "./auth";
 // Request limits to prevent excessively large or unintended input commands.
 export const maxTextLength = 500;
 export const maxPointerDelta = 500;
-export const maxScrollDelta = 20;
+export const maxScrollDelta = 100;
 
 export function createApi(input: Input, auth: Auth) {
   const router = express.Router();

@@ -37,8 +37,6 @@ export function createAuth(): Auth {
 
       const code = randomInt(100000, 1000000).toString();
 
-      console.log("[auth] Code is " + code);
-
       pairingWindow = {
         secret,
         code,

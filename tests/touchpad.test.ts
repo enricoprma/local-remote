@@ -1,5 +1,9 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
+  DEFAULT_POINTER_SENSITIVITY,
+  DEFAULT_SCROLL_SENSITIVITY,
+  MAX_POINTER_MOVE,
+  MAX_SCROLL,
   Touchpad,
   type GestureHandlers,
   type GestureRecognizer,
@@ -53,24 +57,35 @@ beforeEach(() => {
 
 test("maps every gesture to its distinct touchpad action", () => {
   const { element, handlers, recognizer } = createTouchpad();
+  const pointerDx = 2.25;
+  const pointerDy = -1.75;
+  const scrollDy = 1.25;
 
   expect(recognizer.element).toBe(element);
   recognizer.handlers.onTap();
-  recognizer.handlers.onOneFingerMove(2.25, -1.75);
+  recognizer.handlers.onOneFingerMove(pointerDx, pointerDy);
   recognizer.handlers.onLongPress();
   recognizer.handlers.onTwoFingerTap();
-  recognizer.handlers.onTwoFingerMove(1.25);
+  recognizer.handlers.onTwoFingerMove(scrollDy);
   recognizer.handlers.onThreeFingerStart();
-  recognizer.handlers.onThreeFingerMove(2.25, -1.75);
+  recognizer.handlers.onThreeFingerMove(pointerDx, pointerDy);
   recognizer.handlers.onThreeFingerEnd();
 
   expect(handlers.onClick).toHaveBeenCalledTimes(1);
-  expect(handlers.onPointerMove).toHaveBeenCalledWith(9, -7);
+  expect(handlers.onPointerMove).toHaveBeenCalledWith(
+    Math.trunc(pointerDx * DEFAULT_POINTER_SENSITIVITY),
+    Math.trunc(pointerDy * DEFAULT_POINTER_SENSITIVITY),
+  );
   expect(handlers.onTextInputRequested).toHaveBeenCalledTimes(1);
   expect(handlers.onSecondaryClick).toHaveBeenCalledTimes(1);
-  expect(handlers.onScroll).toHaveBeenCalledWith(6);
+  expect(handlers.onScroll).toHaveBeenCalledWith(
+    Math.trunc(scrollDy * DEFAULT_SCROLL_SENSITIVITY),
+  );
   expect(handlers.onDragStart).toHaveBeenCalledTimes(1);
-  expect(handlers.onDrag).toHaveBeenCalledWith(9, -7);
+  expect(handlers.onDrag).toHaveBeenCalledWith(
+    Math.trunc(pointerDx * DEFAULT_POINTER_SENSITIVITY),
+    Math.trunc(pointerDy * DEFAULT_POINTER_SENSITIVITY),
+  );
   expect(handlers.onDragEnd).toHaveBeenCalledTimes(1);
   expect(handlers.onPointerMove).toHaveBeenCalledTimes(1);
   expect(handlers.onDrag).toHaveBeenCalledTimes(1);
@@ -79,12 +94,15 @@ test("maps every gesture to its distinct touchpad action", () => {
 test("truncates each event independently without accumulating remainders", () => {
   const { handlers, recognizer } = createTouchpad();
 
-  recognizer.handlers.onOneFingerMove(0.2, -0.2);
-  recognizer.handlers.onOneFingerMove(0.2, -0.2);
-  recognizer.handlers.onOneFingerMove(0.2, -0.2);
-  recognizer.handlers.onThreeFingerMove(0.2, -0.2);
-  recognizer.handlers.onTwoFingerMove(0.1);
-  recognizer.handlers.onTwoFingerMove(0.1);
+  const subPointerDelta = 1 / (DEFAULT_POINTER_SENSITIVITY + 1);
+  const subScrollDelta = 1 / (DEFAULT_SCROLL_SENSITIVITY + 1);
+
+  recognizer.handlers.onOneFingerMove(subPointerDelta, -subPointerDelta);
+  recognizer.handlers.onOneFingerMove(subPointerDelta, -subPointerDelta);
+  recognizer.handlers.onOneFingerMove(subPointerDelta, -subPointerDelta);
+  recognizer.handlers.onThreeFingerMove(subPointerDelta, -subPointerDelta);
+  recognizer.handlers.onTwoFingerMove(subScrollDelta);
+  recognizer.handlers.onTwoFingerMove(subScrollDelta);
 
   expect(handlers.onPointerMove).not.toHaveBeenCalled();
   expect(handlers.onDrag).not.toHaveBeenCalled();
@@ -94,16 +112,30 @@ test("truncates each event independently without accumulating remainders", () =>
 test("clamps pointer, drag, and scroll output and suppresses zero movement", () => {
   const { handlers, recognizer } = createTouchpad();
 
-  recognizer.handlers.onOneFingerMove(1_000, -1_000);
+  const excessivePointerDelta =
+    MAX_POINTER_MOVE / DEFAULT_POINTER_SENSITIVITY + 1;
+  const excessiveScrollDelta = MAX_SCROLL / DEFAULT_SCROLL_SENSITIVITY + 1;
+
+  recognizer.handlers.onOneFingerMove(
+    excessivePointerDelta,
+    -excessivePointerDelta,
+  );
   recognizer.handlers.onOneFingerMove(0, 0);
-  recognizer.handlers.onThreeFingerMove(-1_000, 1_000);
+  recognizer.handlers.onThreeFingerMove(
+    -excessivePointerDelta,
+    excessivePointerDelta,
+  );
   recognizer.handlers.onThreeFingerMove(0, 0);
-  recognizer.handlers.onTwoFingerMove(1_000);
+  recognizer.handlers.onTwoFingerMove(excessiveScrollDelta);
   recognizer.handlers.onTwoFingerMove(0);
 
-  expect(handlers.onPointerMove.mock.calls).toEqual([[500, -500]]);
-  expect(handlers.onDrag.mock.calls).toEqual([[-500, 500]]);
-  expect(handlers.onScroll.mock.calls).toEqual([[20]]);
+  expect(handlers.onPointerMove.mock.calls).toEqual([
+    [MAX_POINTER_MOVE, -MAX_POINTER_MOVE],
+  ]);
+  expect(handlers.onDrag.mock.calls).toEqual([
+    [-MAX_POINTER_MOVE, MAX_POINTER_MOVE],
+  ]);
+  expect(handlers.onScroll.mock.calls).toEqual([[MAX_SCROLL]]);
 });
 
 test("initial options and sensitivity setters affect following events", () => {
@@ -154,8 +186,11 @@ test.each([-1, Number.NaN, Number.NEGATIVE_INFINITY])(
     );
     recognizer.handlers.onOneFingerMove(1, 1);
     recognizer.handlers.onTwoFingerMove(1);
-    expect(handlers.onPointerMove).toHaveBeenCalledWith(4, 4);
-    expect(handlers.onScroll).toHaveBeenCalledWith(5);
+    expect(handlers.onPointerMove).toHaveBeenCalledWith(
+      DEFAULT_POINTER_SENSITIVITY,
+      DEFAULT_POINTER_SENSITIVITY,
+    );
+    expect(handlers.onScroll).toHaveBeenCalledWith(DEFAULT_SCROLL_SENSITIVITY);
   },
 );
 

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { MAX_POINTER_MOVE, MAX_SCROLL } from "../client/input-limits";
+
 beforeEach(() => vi.resetModules());
 afterEach(() => vi.unstubAllGlobals());
 
@@ -157,13 +159,17 @@ test("combined deltas stay within API limits without queuing excess movement", a
   const { fetch, responses } = controlFetch();
   const remote = await import("../client/services/remote");
   const completed = Promise.all([
-    remote.movePointer(400, -300),
-    remote.movePointer(200, -300),
-    remote.scroll(-15),
-    remote.scroll(-15),
+    remote.movePointer(MAX_POINTER_MOVE, -MAX_POINTER_MOVE),
+    remote.movePointer(1, -1),
+    remote.scroll(-MAX_SCROLL),
+    remote.scroll(-1),
     remote.action("end-drag"),
   ]);
-  const bodies = [{ dx: 500, dy: -500 }, { dy: -20 }, { action: "end-drag" }];
+  const bodies = [
+    { dx: MAX_POINTER_MOVE, dy: -MAX_POINTER_MOVE },
+    { dy: -MAX_SCROLL },
+    { action: "end-drag" },
+  ];
   for (let i = 0; i < bodies.length; i++) {
     await flush();
     expect(JSON.parse(String(fetch.mock.calls[i][1]?.body))).toEqual(bodies[i]);
@@ -177,9 +183,9 @@ test("direction changes sum before clamping and zero movement sends no invalid r
   const { fetch, responses } = controlFetch();
   const remote = await import("../client/services/remote");
   const completed = Promise.all([
-    remote.movePointer(400, 0),
-    remote.movePointer(400, 0),
-    remote.movePointer(-500, 0),
+    remote.movePointer(MAX_POINTER_MOVE, 0),
+    remote.movePointer(MAX_POINTER_MOVE, 0),
+    remote.movePointer(-MAX_POINTER_MOVE, 0),
     remote.scroll(10),
     remote.scroll(-10),
     remote.movePointer(2, 3),
@@ -188,7 +194,7 @@ test("direction changes sum before clamping and zero movement sends no invalid r
   ]);
   await flush();
   expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual({
-    dx: 300,
+    dx: MAX_POINTER_MOVE,
     dy: 0,
   });
   responses[0](new Response(null, { status: 204 }));
