@@ -1,4 +1,4 @@
-import robot from "@hurdlegroup/robotjs";
+import robot from "robotjs";
 
 import type { Input } from "./input";
 import type { RemoteAction } from "./actions";

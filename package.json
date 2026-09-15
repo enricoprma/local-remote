@@ -31,11 +31,11 @@
     ]
   },
   "dependencies": {
-    "@hurdlegroup/robotjs": "^0.12.3",
     "bonjour-service": "^1.4.4",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "robotjs": "0.9.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

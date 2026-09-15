@@ -15,7 +15,7 @@ const robot = vi.hoisted(() => ({
   scrollMouse: vi.fn(),
   typeString: vi.fn(),
 }));
-vi.mock("@hurdlegroup/robotjs", () => ({ default: robot }));
+vi.mock("robotjs", () => ({ default: robot }));
 
 beforeEach(() => {
   vi.resetModules();
