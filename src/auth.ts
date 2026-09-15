@@ -5,13 +5,13 @@ export const sessionCookieName = "local-remote-session";
 export const sessionDurationMs = 24 * 60 * 60 * 1000; // 24 hours
 
 const pairingDurationMs = 2 * 60 * 1000; // 2 minutes
-const maxPairingsPerWindow = 10;
+const maxWrongTriesPerWindow = 10;
 
 type PairingWindow = {
   secret: string;
   code: string;
   expiresAt: number;
-  pairings: number;
+  wrongTries: number;
 };
 
 export interface PairingCredentials {
@@ -43,7 +43,7 @@ export function createAuth(): Auth {
         secret,
         code,
         expiresAt: Date.now() + pairingDurationMs,
-        pairings: 0,
+        wrongTries: 0,
       };
 
       console.log(
@@ -74,31 +74,27 @@ export function createAuth(): Auth {
         return null;
       }
 
-      if (pairingWindow.pairings >= maxPairingsPerWindow) {
-        console.warn("[auth] Pairing rejected: pairing limit reached");
-
-        return null;
-      }
-
       const matchesSecret = credential === pairingWindow.secret;
 
       const matchesCode = credential === pairingWindow.code;
 
       if (!matchesSecret && !matchesCode) {
         console.warn("[auth] Pairing rejected: credential does not match");
+        pairingWindow.wrongTries++;
+
+        if (pairingWindow.wrongTries >= maxWrongTriesPerWindow) {
+          console.warn("[auth] Pairing window closed: too many wrong tries");
+          pairingWindow = null;
+        }
 
         return null;
       }
-
-      pairingWindow.pairings++;
 
       const session = randomBytes(32).toString("base64url");
 
       sessions.set(session, Date.now() + sessionDurationMs);
 
-      console.log(
-        `[auth] Session created (${pairingWindow.pairings}/${maxPairingsPerWindow} pairings used)`,
-      );
+      console.log(`[auth] Session created`);
 
       return session;
     },

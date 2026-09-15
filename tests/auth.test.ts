@@ -65,23 +65,32 @@ test("pairing fails after window closes", () => {
   expect(codeSession).toBeNull();
 });
 
-test("pairing fails after 10 successful pairings", () => {
+test("pairing fails after 10 wrong pairings", () => {
   const auth = createAuth();
+
+  const wrong = "wrong";
 
   const { secret } = auth.openPairingWindow();
 
-  for (let i = 0; i < 10; i++) {
-    const session = auth.pair(secret);
-
-    if (session === null) {
-      throw new Error("Pairing failed");
-    }
-
-    expect(auth.isSessionValid(session)).toBe(true);
+  // 9 tries with wrong credentials
+  for (let i = 0; i < 9; i++) {
+    expect(auth.pair(wrong)).toBeNull();
   }
 
   const session = auth.pair(secret);
-  expect(session).toBeNull();
+
+  if (session === null) {
+    throw new Error("Pairing failed");
+  }
+
+  // try with right credential
+  expect(auth.isSessionValid(session)).toBe(true);
+
+  // 10th wrong try
+  expect(auth.pair(wrong)).toBeNull();
+
+  // try with right credential
+  expect(auth.pair(secret)).toBeNull();
 });
 
 // Sessions: expiration boundaries and unknown tokens.
