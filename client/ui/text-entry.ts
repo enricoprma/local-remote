@@ -45,12 +45,25 @@ export function mountTextEntry(
     composing = false;
   });
 
+  // Prevent iOS three-finger undo/redo from restoring and focusing text
+  // that was already sent through this otherwise hidden input.
+  input.addEventListener("beforeinput", (event) => {
+    if (
+      event.inputType === "historyUndo" ||
+      event.inputType === "historyRedo"
+    ) {
+      event.preventDefault();
+    }
+  });
+
   function open(): void {
+    input.disabled = false;
     input.focus({ preventScroll: true });
     input.setSelectionRange(input.value.length, input.value.length);
   }
 
   function close(): void {
+    input.disabled = true;
     input.blur();
   }
 
@@ -77,7 +90,7 @@ export function mountTextEntry(
       const enterSent = await onEnter();
 
       if (enterSent) {
-        input.blur();
+        close();
       }
     } finally {
       input.readOnly = false;
