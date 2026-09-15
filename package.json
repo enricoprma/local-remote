@@ -1,7 +1,7 @@
 {
   "name": "local-remote",
   "description": "A browser-based wireless touchpad and keyboard for Windows.",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "author": "Enrico Perea",
   "license": "MIT",
   "private": true,
