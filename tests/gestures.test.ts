@@ -1,40 +1,70 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { mountGestures, type GestureHandlers } from "../client/ui/touchpad";
-import { attachGestureRecognizer } from "../client/ui/gestureRecognizer";
+import { PointerGestureRecognizer } from "../client/ui/touchpad/gestures/pointer-gesture-recognizer";
+import type { GestureHandlers } from "../client/ui/touchpad/gestures/types";
 
 // Exercise real event listeners and timers without adding a DOM dependency.
 // Device-level capture and virtual-keyboard behavior still need a phone test.
-class ElementStub extends EventTarget {
-  style = { touchAction: "" };
-  setPointerCapture = vi.fn();
-  querySelector = vi.fn();
+class TrackedEventTarget extends EventTarget {
+  readonly addedListeners: string[] = [];
+  readonly removedListeners: string[] = [];
+
+  override addEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: AddEventListenerOptions | boolean,
+  ): void {
+    this.addedListeners.push(type);
+    super.addEventListener(type, callback, options);
+  }
+
+  override removeEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: EventListenerOptions | boolean,
+  ): void {
+    this.removedListeners.push(type);
+    super.removeEventListener(type, callback, options);
+  }
 }
 
-function setup(ui = false) {
-  const browser = new EventTarget();
-  const document = Object.assign(new EventTarget(), {
+class ElementStub extends TrackedEventTarget {
+  style = { touchAction: "pan-x" };
+  setPointerCapture = vi.fn();
+  releasePointerCapture = vi.fn();
+}
+
+function setup() {
+  const browser = new TrackedEventTarget();
+  const document = Object.assign(new TrackedEventTarget(), {
     visibilityState: "visible",
   });
-  const root = new ElementStub();
   const touchArea = new ElementStub();
-  root.querySelector.mockReturnValue(touchArea);
   vi.stubGlobal("window", browser);
   vi.stubGlobal("document", document);
   vi.stubGlobal("HTMLElement", ElementStub);
 
   const handlers = {
     onTap: vi.fn<GestureHandlers["onTap"]>(),
-    onMove: vi.fn<GestureHandlers["onMove"]>(),
-    onScroll: vi.fn<GestureHandlers["onScroll"]>(),
+    onMove: vi.fn<GestureHandlers["onOneFingerMove"]>(),
+    onScroll: vi.fn<GestureHandlers["onTwoFingerMove"]>(),
     onLongPress: vi.fn<GestureHandlers["onLongPress"]>(),
-    onLongPressCancel: vi.fn<GestureHandlers["onLongPressCancel"]>(),
-    onRightClick: vi.fn<GestureHandlers["onRightClick"]>(),
-    onDragStart: vi.fn<GestureHandlers["onDragStart"]>(),
-    onDragEnd: vi.fn<GestureHandlers["onDragEnd"]>(),
+    onRightClick: vi.fn<GestureHandlers["onTwoFingerTap"]>(),
+    onDragStart: vi.fn<GestureHandlers["onThreeFingerStart"]>(),
+    onDragEnd: vi.fn<GestureHandlers["onThreeFingerEnd"]>(),
   };
-  const cancel = ui
-    ? mountGestures(root as unknown as HTMLElement, handlers)
-    : attachGestureRecognizer(touchArea as unknown as HTMLElement, handlers);
+  const recognizer = new PointerGestureRecognizer(
+    touchArea as unknown as HTMLElement,
+    {
+      onTap: handlers.onTap,
+      onOneFingerMove: handlers.onMove,
+      onLongPress: handlers.onLongPress,
+      onTwoFingerTap: handlers.onRightClick,
+      onTwoFingerMove: handlers.onScroll,
+      onThreeFingerStart: handlers.onDragStart,
+      onThreeFingerMove: handlers.onMove,
+      onThreeFingerEnd: handlers.onDragEnd,
+    },
+  );
 
   function send(
     type: string,
@@ -79,8 +109,7 @@ function setup(ui = false) {
     send,
     tap,
     drag,
-    cancel,
-    root,
+    recognizer,
     touchArea,
     browser,
     document,
@@ -130,7 +159,6 @@ test("recognizes a hold and opens text entry only on normal release", () => {
   send("pointerup");
   send("lostpointercapture");
   expect(handlers.onLongPress).toHaveBeenCalledTimes(1);
-  expect(handlers.onLongPressCancel).not.toHaveBeenCalled();
   expect(handlers.onTap).not.toHaveBeenCalled();
 });
 
@@ -170,7 +198,6 @@ test("a second finger cancels long press without clicking on release", () => {
   send("pointerdown", 2);
   send("pointerup");
   send("pointerup", 2);
-  expect(handlers.onLongPressCancel).toHaveBeenCalledTimes(1);
   expect(handlers.onLongPress).not.toHaveBeenCalled();
   expect(handlers.onRightClick).not.toHaveBeenCalled();
   tap();
@@ -241,9 +268,8 @@ test.each([
   "blur",
   "hidden",
   "pagehide",
-  "request failure",
 ])("ends a drag exactly once after %s", (ending) => {
-  const { send, handlers, drag, cancel, browser, document } = setup();
+  const { send, handlers, drag, tap, browser, document } = setup();
   drag();
   if (ending === "cancel") send("pointercancel");
   if (ending === "fourth finger") send("pointerdown", 4);
@@ -254,7 +280,6 @@ test.each([
     document.visibilityState = "hidden";
     document.dispatchEvent(new Event("visibilitychange"));
   }
-  if (ending === "request failure") cancel();
   send("pointerup");
   send("pointerup", 2);
   send("pointerup", 3);
@@ -264,6 +289,8 @@ test.each([
   expect(handlers.onDragEnd).toHaveBeenCalledTimes(1);
   expect(handlers.onTap).not.toHaveBeenCalled();
   expect(handlers.onRightClick).not.toHaveBeenCalled();
+  tap(5);
+  expect(handlers.onTap).toHaveBeenCalledTimes(1);
 });
 
 test("one-finger movement after a tap remains pointer movement", () => {
@@ -490,29 +517,139 @@ test("a failed capture cannot arm a hold", () => {
   expect(handlers.onLongPress).not.toHaveBeenCalled();
 });
 
-test("the UI scopes gestures to the touch area and keeps bounded integer movement", () => {
-  const { send, handlers, root } = setup(true);
-  send("pointerdown", 1, 100, 100, 0, root);
-  send("pointerup", 1);
-  expect(handlers.onTap).not.toHaveBeenCalled();
-  send("pointerdown");
-  send("pointermove", 1, 108.125);
-  send("pointermove", 1, 108.25);
-  send("pointerup", 1, 1000);
-  expect(handlers.onMove.mock.calls).toEqual([
-    [32, 0],
-    [1, 0],
-    [500, 0],
+test("construction and repeated enable register each listener once per cycle", () => {
+  const { recognizer, touchArea, browser, document } = setup();
+
+  expect(touchArea.addedListeners).toEqual([
+    "lostpointercapture",
+    "pointerdown",
   ]);
+  expect(browser.addedListeners).toEqual([
+    "blur",
+    "pagehide",
+    "pointermove",
+    "pointerup",
+    "pointercancel",
+  ]);
+  expect(document.addedListeners).toEqual(["visibilitychange"]);
+
+  recognizer.setEnabled(true);
+  expect(touchArea.addedListeners).toHaveLength(2);
+  expect(browser.addedListeners).toHaveLength(5);
+  expect(document.addedListeners).toHaveLength(1);
+
+  recognizer.setEnabled(false);
+  recognizer.setEnabled(true);
+  expect(touchArea.addedListeners).toHaveLength(4);
+  expect(browser.addedListeners).toHaveLength(10);
+  expect(document.addedListeners).toHaveLength(2);
 });
 
-test("the UI preserves scroll sign, limits, and substep remainders", () => {
-  const { send, handlers } = setup(true);
+test("disable removes listeners, releases captures, restores style, and re-enables", () => {
+  const { send, handlers, recognizer, touchArea, browser, document } = setup();
   send("pointerdown", 1);
+  expect(touchArea.style.touchAction).toBe("none");
+
+  recognizer.setEnabled(false);
+  expect(touchArea.removedListeners).toEqual([
+    "lostpointercapture",
+    "pointerdown",
+  ]);
+  expect(browser.removedListeners).toEqual([
+    "blur",
+    "pagehide",
+    "pointermove",
+    "pointerup",
+    "pointercancel",
+  ]);
+  expect(document.removedListeners).toEqual(["visibilitychange"]);
+  expect(touchArea.releasePointerCapture).toHaveBeenCalledWith(1);
+  expect(touchArea.style.touchAction).toBe("pan-x");
+
+  vi.advanceTimersByTime(450);
+  send("pointerup", 1);
+  expect(handlers.onTap).not.toHaveBeenCalled();
+  expect(handlers.onLongPress).not.toHaveBeenCalled();
+
+  recognizer.setEnabled(true);
+  expect(touchArea.style.touchAction).toBe("none");
   send("pointerdown", 2);
-  send("pointermove", 1, 100, 108);
-  send("pointermove", 1, 100, 108.125);
-  send("pointermove", 1, 100, 108.5);
-  send("pointermove", 1, 100, -100);
-  expect(handlers.onScroll.mock.calls).toEqual([[20], [1], [-20]]);
+  send("pointerup", 2);
+  expect(handlers.onTap).toHaveBeenCalledTimes(1);
+
+  recognizer.setEnabled(false);
+  expect(touchArea.style.touchAction).toBe("pan-x");
+});
+
+test("disable during drag emits one end and remains idempotent", () => {
+  const { send, handlers, drag, recognizer } = setup();
+  drag();
+  recognizer.setEnabled(false);
+  recognizer.setEnabled(false);
+  send("pointerup", 1);
+  send("pointerup", 2);
+  send("pointerup", 3);
+  expect(handlers.onDragEnd).toHaveBeenCalledTimes(1);
+});
+
+test("destroy during drag ends once and permanently prevents callbacks", () => {
+  const { send, handlers, drag, recognizer, touchArea, browser, document } =
+    setup();
+  handlers.onDragEnd.mockImplementation(() => recognizer.setEnabled(true));
+  drag();
+
+  recognizer.destroy();
+  recognizer.destroy();
+  recognizer.setEnabled(true);
+  expect(handlers.onDragEnd).toHaveBeenCalledTimes(1);
+  expect(touchArea.style.touchAction).toBe("pan-x");
+  expect(touchArea.removedListeners).toEqual([
+    "lostpointercapture",
+    "pointerdown",
+  ]);
+  expect(browser.removedListeners).toHaveLength(5);
+  expect(document.removedListeners).toEqual(["visibilitychange"]);
+  expect(touchArea.releasePointerCapture.mock.calls).toEqual([[1], [2], [3]]);
+
+  send("pointerup", 1);
+  send("pointerup", 2);
+  send("pointerup", 3);
+  send("pointerdown", 4);
+  vi.advanceTimersByTime(450);
+  send("pointerup", 4);
+  expect(handlers.onDragEnd).toHaveBeenCalledTimes(1);
+  expect(handlers.onTap).not.toHaveBeenCalled();
+  expect(handlers.onLongPress).not.toHaveBeenCalled();
+});
+
+test("cancelling non-drag gestures remains silent", () => {
+  const abort = (ending: "capture" | "blur" | "pagehide" | "hidden") => {
+    const context = setup();
+    context.send("pointerdown", 1);
+    context.send("pointerdown", 2);
+
+    if (ending === "capture") {
+      context.send("lostpointercapture", 1);
+    } else if (ending === "hidden") {
+      context.document.visibilityState = "hidden";
+      context.document.dispatchEvent(new Event("visibilitychange"));
+    } else {
+      context.browser.dispatchEvent(new Event(ending));
+    }
+
+    vi.advanceTimersByTime(500);
+    expect(context.handlers.onTap).not.toHaveBeenCalled();
+    expect(context.handlers.onMove).not.toHaveBeenCalled();
+    expect(context.handlers.onScroll).not.toHaveBeenCalled();
+    expect(context.handlers.onLongPress).not.toHaveBeenCalled();
+    expect(context.handlers.onRightClick).not.toHaveBeenCalled();
+    expect(context.handlers.onDragStart).not.toHaveBeenCalled();
+    expect(context.handlers.onDragEnd).not.toHaveBeenCalled();
+    context.recognizer.destroy();
+  };
+
+  abort("capture");
+  abort("blur");
+  abort("pagehide");
+  abort("hidden");
 });

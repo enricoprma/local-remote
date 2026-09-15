@@ -4,9 +4,9 @@ import { HttpError } from "./services/http.js";
 import { mountControls } from "./ui/controls.js";
 import { requiredElement } from "./ui/dom.js";
 import { mountFeedback } from "./ui/feedback.js";
-import { mountGestures } from "./ui/touchpad.js";
 import { mountPairingForm } from "./ui/pairing-form.js";
 import { mountTextEntry } from "./ui/text-entry.js";
+import { Touchpad } from "./ui/touchpad/index.js";
 
 const root = requiredElement(document, "[data-app]", HTMLElement);
 const feedback = mountFeedback(root);
@@ -23,31 +23,38 @@ const textEntry = mountTextEntry(root, {
 
 mountControls(root, (action) => runRemote(remote.action(action)));
 
-const cancelGestures = mountGestures(root, {
-  onTap: () => {
+const touchArea = requiredElement(root, "#touch-area", HTMLElement);
+
+new Touchpad(touchArea, {
+  onClick: () => {
     void runRemote(remote.action("click"));
   },
 
-  onMove: (dx, dy) => {
+  onPointerMove: (dx, dy) => {
     void runRemote(remote.movePointer(dx, dy));
   },
 
-  onScroll: (dy) => {
-    void runRemote(remote.scroll(dy));
+  onScroll: (steps) => {
+    void runRemote(remote.scroll(steps));
   },
 
-  onLongPress: textEntry.open,
-  onLongPressCancel: textEntry.close,
-
-  onRightClick: () => {
+  onSecondaryClick: () => {
     void runRemote(remote.action("right-click"));
   },
+
   onDragStart: () => {
     void runRemote(remote.action("start-drag"));
   },
+
+  onDrag: (dx, dy) => {
+    void runRemote(remote.movePointer(dx, dy));
+  },
+
   onDragEnd: () => {
     void runRemote(remote.action("end-drag"));
   },
+
+  onTextInputRequested: textEntry.open,
 });
 
 async function initializePairing(): Promise<void> {
@@ -96,7 +103,6 @@ async function runRemote(request: Promise<void>): Promise<boolean> {
     await request;
     return true;
   } catch (error: unknown) {
-    cancelGestures?.();
     if (error instanceof HttpError && error.status === 401) {
       pairingForm.show();
       feedback.show("Pairing required", true);
