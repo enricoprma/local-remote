@@ -15,14 +15,13 @@ No mobile app required. Scan the QR code and control your PC over your local net
 - Text input via long press
 - Volume / arrow-key controls
 - QR code and six-digit PIN pairing
-- Installable PWA
 - Portable Windows executable
 - Automatic drag recovery after connection loss
 
 ## How it works
 
 ```text
-Phone Browser / Installed PWA
+Phone Browser
         │
         ▼
 Web Client
@@ -63,9 +62,9 @@ Windows
 
 Your PC and phone must be connected to the same local network.
 
-### Manual connection and PWA
+### Manual connection
 
-To connect manually or install Local Remote on your Home Screen, open:
+To connect manually or install Local Remote on your Home Screen on iOS, open:
 
 ```text
 http://local-remote.local:3000
